@@ -10,8 +10,6 @@
 # testing
 /coverage
 
-public/
-bun*
 
 # next.js
 /.next/
