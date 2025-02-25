@@ -29,6 +29,8 @@ import {
 	Pie,
 	Cell,
 } from "recharts";
+import { LogoutButton } from "@/components/main/LogoutButton";
+import { useAuthStore } from "@/lib/stores/authStore";
 
 const lineChartData = [
 	{ name: "Week 1", score: 6.5 },
@@ -203,8 +205,11 @@ const Analytics = () => (
 
 export default function DashboardPage() {
 	const router = useRouter();
+    const {user} = useAuthStore();
+    console.log(user)
 	return (
 		<div className="h-full p-6 space-y-6">
+            <LogoutButton/>
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold">Dashboard</h1>
