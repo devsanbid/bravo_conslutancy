@@ -5,6 +5,32 @@ import { cookies } from "next/headers";
 import { Account, Client } from "node-appwrite";
 
 const sessionName = `a_session_${process.env.NEXT_PUBLIC_PROJECTID}`;
+
+// Function to check if the current user's email is verified
+export async function isEmailVerified() {
+	try {
+		const { account } = await createSessionClient();
+		const user = await account.get();
+		
+		// Appwrite stores email verification status in the emailVerification property
+		return user?.emailVerification || false;
+	} catch (error) {
+		console.error("Email verification check error:", error);
+		return false;
+	}
+}
+
+// Function to send a verification email
+export async function sendVerificationEmail() {
+	try {
+		const { account } = await createSessionClient();
+		await account.createVerification(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
+		return { success: true };
+	} catch (error) {
+		console.error("Send verification email error:", error);
+		throw error;
+	}
+}
 export async function register(
 	email: string,
 	password: string,
@@ -67,6 +93,14 @@ export async function login(email: string, password: string) {
 			secure: true,
 		});
 
+		// Immediately try to get the user to validate the session
+		try {
+			const currentUser = await getCurrentUser();
+			console.log("Login successful, user retrieved:", currentUser?.$id);
+		} catch (verifyError) {
+			console.error("Error verifying user after login:", verifyError);
+		}
+
 		return session;
 	} catch (error) {
 		console.error("Login error:", error);
@@ -116,12 +150,27 @@ export async function getCurrentUser() {
 		const user = await account.get();
 		if (!user) return null;
 
-		const userProfile = await databases.listDocuments(
-			process.env.NEXT_PUBLIC_DATABASEID || "",
-			process.env.NEXT_PUBLIC_COLLECTID || "",
-			[`equal("userId", "${user.$id}")`],
-		);
-		return { ...user, profile: userProfile.documents[0] || null };
+		try {
+			// Try to get the user profile using the admin client to avoid permission issues
+			const { databases: adminDatabases } = await createAdminClient();
+			
+			// Get all documents and filter manually to avoid query syntax errors
+			const userProfiles = await adminDatabases.listDocuments(
+				process.env.NEXT_PUBLIC_DATABASEID || "",
+				process.env.NEXT_PUBLIC_COLLECTID || ""
+			);
+			
+			// Find the profile that matches the user ID
+			const profile = userProfiles.documents.find(doc => doc.userId === user.$id);
+			
+			console.log("User profile found:", profile ? "Yes" : "No", profile?.role || "No role");
+			
+			return { ...user, profile: profile || null };
+		} catch (profileError) {
+			console.error("Error fetching user profile:", profileError);
+			// Return the user without a profile if there's an error
+			return { ...user, profile: null };
+		}
 	} catch (error) {
 		console.error("Get current user error:", error);
 		return null;

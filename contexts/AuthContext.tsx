@@ -1,13 +1,13 @@
 "use client"
 import { createContext, useContext, useEffect, useState } from 'react';
-import { AuthController } from '@/controllers/AuthController';
+import { login as loginFn, register as registerFn, logout as logoutFn, forgotPassword as forgotPasswordFn, getCurrentUser } from '@/controllers/AuthController';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: any;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, firstName: string, middleName: string, lastName: string, gender: string, dateOfBirth: Date, phone: string, service: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
 }
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function checkUser() {
     try {
-      const currentUser = await AuthController.getCurrentUser();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     } catch (error) {
       console.error('Error checking user:', error);
@@ -43,19 +43,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function login(email: string, password: string) {
     try {
-      await AuthController.login(email, password);
-      await checkUser();
-      router.push('/dashboard');
+      await loginFn(email, password);
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      
+      // Redirect based on user role
+      if (currentUser?.profile?.role) {
+        const role = currentUser.profile.role;
+        console.log("Login successful, redirecting based on role:", role);
+        switch (role) {
+          case "student":
+            router.push('/dashboard');
+            break;
+          case "mod":
+            router.push('/mod');
+            break;
+          case "admin":
+            router.push('/admin');
+            break;
+          default:
+            router.push('/dashboard');
+        }
+      } else {
+        console.log("Login successful, but no role found. Redirecting to dashboard.");
+        router.push('/dashboard');
+      }
     } catch (error) {
+      console.error("Login error in AuthContext:", error);
       throw error;
     }
   }
 
-  async function register(email: string, password: string, name: string) {
+  async function register(
+    email: string, 
+    password: string, 
+    firstName: string,
+    middleName: string,
+    lastName: string,
+    gender: string,
+    dateOfBirth: Date,
+    phone: string,
+    service: string
+  ) {
     try {
-      await AuthController.register(email, password, name);
+      await registerFn(
+        email, 
+        password, 
+        firstName,
+        middleName,
+        lastName,
+        gender,
+        dateOfBirth,
+        phone,
+        service
+      );
       await checkUser();
-      router.push('/dashboard');
+      router.push('/login');
     } catch (error) {
       throw error;
     }
@@ -63,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     try {
-      await AuthController.logout();
+      await logoutFn();
       setUser(null);
       router.push('/login');
     } catch (error) {
@@ -73,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function forgotPassword(email: string) {
     try {
-      await AuthController.forgotPassword(email);
+      await forgotPasswordFn(email);
     } catch (error) {
       throw error;
     }

@@ -32,18 +32,27 @@ async function getUserAndRole(request: NextRequest) {
     // Get the user's profile
     let profile;
     try {
+      // Make sure we have the correct database and collection IDs
+      const databaseId = process.env.NEXT_PUBLIC_DATABASEID;
+      const collectionId = process.env.NEXT_PUBLIC_COLLECTID;
+      
+      if (!databaseId || !collectionId) {
+        console.log("Missing database or collection ID in environment variables");
+        return { user, role: null };
+      }
+      
+      // Get all documents and filter manually to avoid query syntax errors
       const profileResponse = await databases.listDocuments(
-        "UsersDB", // Replace with your actual DB ID
-        "UserProfiles", // Replace with your actual collection ID
-        [
-          `equal("userId", "${user.$id}")`
-        ]
+        databaseId,
+        collectionId
       );
       
-      profile = profileResponse.documents[0];
-      console.log("Profile fetched:", profile?.role);
+      // Find the profile that matches the user ID
+      profile = profileResponse.documents.find(doc => doc.userId === user.$id);
+      console.log("Profile fetched:", profile?.role || "No role found");
     } catch (error) {
       console.log("Failed to get profile:", error);
+      // If there's a database error, we should still allow the user to access public routes
       return { user, role: null };
     }
     
@@ -60,17 +69,33 @@ export async function middleware(request: NextRequest) {
   
   try {
     const { user, role } = await getUserAndRole(request);
-    const isPublicRoute = publicRoutes.includes(pathname);
     const isAdminRoute = pathname.startsWith("/admin");
     const isModRoute = pathname.startsWith("/mod");
     const isDashboardRoute = pathname.startsWith("/dashboard");
+    const isAuthRoute = ["/login", "/register", "/forgotpassword"].includes(pathname);
+
+    // Redirect authenticated users away from auth pages
+    if (user && isAuthRoute) {
+      console.log("Authenticated user tried to access auth page, redirecting to dashboard");
+      // Redirect based on role
+      if (role) {
+        switch (role) {
+          case "admin":
+            return NextResponse.redirect(new URL("/admin", request.url));
+          case "mod":
+            return NextResponse.redirect(new URL("/mod", request.url));
+          default:
+            return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+      } else {
+        // Default to dashboard if no role
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    }
 
     // Unauthenticated users
     if (!user) {
       console.log("User not authenticated");
-      if (isPublicRoute) {
-        return NextResponse.next();
-      }
       if (isDashboardRoute || isAdminRoute || isModRoute) {
         console.log("Redirecting unauthenticated user to login");
         const redirectUrl = new URL("/login", request.url);
@@ -80,41 +105,36 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Authenticated users
+    // Authenticated users with no role (database error or new user)
+    if (!role) {
+      console.log("User authenticated but no role found");
+      // Allow access to dashboard but not admin or mod routes
+      if (isAdminRoute || isModRoute) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+      return NextResponse.next();
+    }
+
+    // Authenticated users with role
     console.log("User authenticated with role:", role);
-    if (isPublicRoute && pathname !== "/") {
-      const dashboardPath =
-        role === "student" ? "/dashboard" : role === "mod" ? "/mod" : "/admin";
-      console.log("Redirecting from public route to:", dashboardPath);
-      return NextResponse.redirect(new URL(dashboardPath, request.url));
-    }
 
-    if (pathname === "/") {
-      const dashboardPath =
-        role === "student" ? "/dashboard" : role === "mod" ? "/mod" : "/admin";
-      console.log("Redirecting from root to:", dashboardPath);
-      return NextResponse.redirect(new URL(dashboardPath, request.url));
-    }
-
+    // Role-based access control for protected routes
     if (isAdminRoute && role !== "admin") {
-      console.log(
-        "Non-admin tried to access admin route, redirecting to /dashboard"
-      );
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      console.log("Non-admin tried to access admin route, redirecting to appropriate dashboard");
+      const redirectPath = role === "mod" ? "/mod" : "/dashboard";
+      return NextResponse.redirect(new URL(redirectPath, request.url));
     }
 
     if (isModRoute && role !== "mod") {
-      console.log("Non-mod tried to access mod route, redirecting to /dashboard");
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      console.log("Non-mod tried to access mod route, redirecting to appropriate dashboard");
+      const redirectPath = role === "admin" ? "/admin" : "/dashboard";
+      return NextResponse.redirect(new URL(redirectPath, request.url));
     }
 
     if (isDashboardRoute && role !== "student") {
-      const dashboardPath = role === "mod" ? "/mod" : "/admin";
-      console.log(
-        "Non-student tried to access dashboard, redirecting to:",
-        dashboardPath
-      );
-      return NextResponse.redirect(new URL(dashboardPath, request.url));
+      const redirectPath = role === "mod" ? "/mod" : "/admin";
+      console.log("Non-student tried to access dashboard, redirecting to:", redirectPath);
+      return NextResponse.redirect(new URL(redirectPath, request.url));
     }
 
     console.log("Proceeding with request");

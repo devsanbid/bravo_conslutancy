@@ -18,7 +18,8 @@ import {
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { logout } from "@/controllers/AuthController";
+import { useAuthStore } from "@/lib/stores/authStore";
 import { toast } from "sonner";
 
 const routes = [
@@ -65,35 +66,29 @@ export function ModSidebar() {
   const [userDetails, setUserDetails] = useState<any>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    getUserDetails();
-  }, []);
+  const { user, setUser, setLoading } = useAuthStore();
 
-  const getUserDetails = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile) {
-        setUserDetails({
-          email: user.email,
-          name: `${profile.first_name} ${profile.last_name}`,
-        });
-      }
+  useEffect(() => {
+    if (user && user.profile) {
+      setUserDetails({
+        email: user.email || "",
+        name: user.name || "",
+      });
     }
-  };
+  }, [user]);
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      setLoading(true);
+      await logout();
+      setUser(null);
       router.push('/login');
       toast.success('Logged out successfully');
     } catch (error) {
+      console.error("Logout error:", error);
       toast.error('Error logging out');
+    } finally {
+      setLoading(false);
     }
   };
 

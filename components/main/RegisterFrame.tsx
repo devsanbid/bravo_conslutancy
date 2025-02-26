@@ -84,9 +84,13 @@ export default function RegistrationForm() {
 				values.phone,
 				values.service,
 			);
+			
+			// Show success message
 			toast.success(
 				"Registration successful! Please check your email to verify your account.",
 			);
+			
+			// Redirect to login page after successful registration
 			router.push("/login");
 		} catch (error) {
 			toast.error("Registration failed. Please try again.");
@@ -482,4 +486,3 @@ export default function RegistrationForm() {
 		</div>
 	);
 }
-

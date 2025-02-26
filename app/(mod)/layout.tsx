@@ -10,6 +10,8 @@ const livvic = Livvic({
   weight: ['300', '400', '500', '600', '700'],
 });
 
+// Metadata is defined in a separate file (metadata.ts) since this is a client component
+
 export default function ModLayout({
   children,
 }: {

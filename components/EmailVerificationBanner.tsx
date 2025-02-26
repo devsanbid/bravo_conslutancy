@@ -4,34 +4,38 @@ import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { isEmailVerified } from "@/lib/auth";
-import { supabase } from "@/lib/supabase/client";
+import { isEmailVerified, sendVerificationEmail } from "@/controllers/AuthController";
 import { toast } from "sonner";
 
 export default function EmailVerificationBanner() {
   const [needsVerification, setNeedsVerification] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     checkEmailVerification();
   }, []);
 
   const checkEmailVerification = async () => {
-    const verified = await isEmailVerified();
-    setNeedsVerification(!verified);
+    try {
+      const verified = await isEmailVerified();
+      setNeedsVerification(!verified);
+    } catch (error) {
+      console.error("Error checking email verification:", error);
+      // Default to not showing the banner if there's an error
+      setNeedsVerification(false);
+    }
   };
 
   const resendVerificationEmail = async () => {
+    setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-      });
-      
-      if (error) throw error;
-      
+      await sendVerificationEmail();
       toast.success("Verification email sent! Please check your inbox.");
     } catch (error) {
       console.error("Error sending verification email:", error);
       toast.error("Failed to send verification email. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -48,9 +52,10 @@ export default function EmailVerificationBanner() {
           variant="outline"
           size="sm"
           onClick={resendVerificationEmail}
+          disabled={isLoading}
           className="ml-4"
         >
-          Resend Verification Email
+          {isLoading ? "Sending..." : "Resend Verification Email"}
         </Button>
       </AlertDescription>
     </Alert>

@@ -1,24 +1,14 @@
-// lib/stores/authStore.ts
 "use client";
 
 import { create } from "zustand";
+import { getCurrentUser } from "@/controllers/AuthController";
 
+// Use a more generic type to avoid type issues
 interface User {
   $id: string;
-  email: string;
   name: string;
-  profile?: {
-    userId: string;
-    firstName: string;
-    middleName: string;
-    lastName: string;
-    email: string;
-    gender: string;
-    dateOfBirth: string;
-    phone: string;
-    service: string;
-    role: "student" | "mod" | "admin";
-  };
+  profile?: any; // Allow any type for profile
+  [key: string]: any; // Allow any other properties
 }
 
 interface AuthState {
@@ -26,12 +16,25 @@ interface AuthState {
   loading: boolean;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
+  checkUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  loading: false, // Start false, set true only during client-side actions
+  loading: true, // Start with true to prevent flash of unauthenticated content
 
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
+  checkUser: async () => {
+    try {
+      set({ loading: true });
+      const user = await getCurrentUser();
+      set({ user });
+    } catch (error) {
+      console.error("Error checking user:", error);
+      set({ user: null });
+    } finally {
+      set({ loading: false });
+    }
+  }
 }));

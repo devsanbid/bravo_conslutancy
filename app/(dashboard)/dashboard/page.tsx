@@ -209,7 +209,6 @@ export default function DashboardPage() {
     console.log(user)
 	return (
 		<div className="h-full p-6 space-y-6">
-            <LogoutButton/>
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold">Dashboard</h1>

@@ -45,23 +45,35 @@ export default function LoginForm() {
 		try {
 			setIsLoading(true);
 
-			await login(values.email, values.password); // Call directly
-			const user = await getCurrentUser(); // Call directly
-			setUser(user);
-			const role = user?.profile?.role;
-			switch (role) {
-				case "student":
-					router.push("/dashboard");
-					break;
-				case "mod":
-					router.push("/mod");
-					break;
-				case "admin":
-					router.push("/admin");
-					break;
-				default:
-					router.push("/");
+			// Login using the controller function
+			await login(values.email, values.password);
+			
+			// Get the updated user and check role for explicit redirect
+			const currentUser = await getCurrentUser();
+			
+			// Explicitly redirect based on role
+			if (currentUser?.profile?.role) {
+				const role = currentUser.profile.role;
+				console.log("Login successful, user role:", role);
+				switch (role) {
+					case "student":
+						router.push("/dashboard");
+						break;
+					case "mod":
+						router.push("/mod");
+						break;
+					case "admin":
+						router.push("/admin");
+						break;
+					default:
+						router.push("/dashboard");
+				}
+			} else {
+				console.log("Login successful, but no role found");
+				// Default redirect if role not found
+				router.push("/dashboard");
 			}
+			
 			toast.success("Login successful!");
 		} catch (error) {
 			toast.error("Invalid email or password");
@@ -238,4 +250,3 @@ export default function LoginForm() {
 		</div>
 	);
 }
-

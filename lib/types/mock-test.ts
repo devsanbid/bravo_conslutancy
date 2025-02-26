@@ -1,67 +1,122 @@
-export interface MockTestSchedule {
+// Mock Test Types
+
+// Mock Test
+export interface MockTest {
   id: string;
   title: string;
-  description: string | null;
-  test_date: string;
-  duration_minutes: number;
-  is_practice: boolean;
-  created_at: string;
-  created_by: string;
-  updated_at: string;
+  description: string;
+  category: "reading" | "listening" | "writing" | "speaking";
+  createdBy: string; // Moderator ID
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+  scheduledDate?: string; // ISO date string
+  duration: number; // in minutes
+  totalMarks: number;
+  instructions?: string;
 }
 
-export interface MockTestSection {
+// Question Types
+export type QuestionType = 
+  | "multiple_choice" 
+  | "fill_blank" 
+  | "essay" 
+  | "speaking" 
+  | "matching" 
+  | "reorder" 
+  | "true_false"
+  | "short_answer";
+
+// Option for multiple choice questions
+export interface QuestionOption {
   id: string;
-  name: string;
-  description: string | null;
-  duration_minutes: number;
-  total_questions: number;
-  passing_score: number;
-  section_type: 'reading' | 'listening' | 'writing' | 'speaking';
-  created_at: string;
-  created_by: string;
+  text: string;
+  isCorrect: boolean;
+  image?: string; // URL to image (optional)
 }
 
-export interface MockTestQuestion {
+// Question
+export interface Question {
   id: string;
-  section_id: string;
-  question_text: string;
-  question_type: 'multiple_choice' | 'essay' | 'speaking';
-  options: any | null;
-  correct_answer: string | null;
+  mockTestId: string;
+  questionType: QuestionType;
+  questionText: string;
+  questionImage?: string; // URL to image (optional)
+  audioUrl?: string; // URL to audio file (for listening questions)
+  options?: QuestionOption[]; // For multiple choice questions
+  correctAnswer?: string | string[]; // The correct answer(s)
   marks: number;
-  created_at: string;
-  created_by: string;
+  order: number; // Question sequence in the test
+  timeLimit?: number; // Time limit in seconds (for timed questions)
+  instructions?: string;
 }
 
-export interface MockTestAttempt {
+// Student Attempt
+export interface StudentAttempt {
   id: string;
-  user_id: string;
-  schedule_id: string;
-  start_time: string;
-  end_time: string | null;
-  status: 'in_progress' | 'completed' | 'abandoned';
-  total_score: number | null;
-  created_at: string;
+  userId: string;
+  mockTestId: string;
+  startedAt: string;
+  completedAt?: string;
+  status: "in_progress" | "completed" | "abandoned";
+  totalScore?: number;
+  percentageScore?: number;
+  feedback?: string;
+  gradedBy?: string; // Moderator ID or "ai" for AI grading
+  gradedAt?: string;
 }
 
-export interface MockTestResponse {
+// Student Response
+export interface StudentResponse {
   id: string;
-  attempt_id: string;
-  question_id: string;
-  user_response: string | null;
-  score: number | null;
-  feedback: string | null;
-  created_at: string;
+  attemptId: string;
+  questionId: string;
+  response: string | string[] | { [key: string]: any }; // Student's answer
+  isCorrect?: boolean;
+  score?: number;
+  audioResponse?: string; // URL to recorded audio (for speaking questions)
+  imageResponse?: string; // URL to uploaded image (for writing questions)
+  feedback?: string;
+  gradedBy?: "ai" | "manual"; // Whether graded by AI or manually
+  gradedAt?: string;
+  aiScore?: number; // Score given by AI
+  manualScore?: number; // Score given by moderator
+  finalScore?: number; // Final score (can be adjusted by moderator)
 }
 
-export interface StudyTimeLog {
+// Notification
+export interface Notification {
   id: string;
-  user_id: string;
-  material_type: string;
-  material_id: string | null;
-  start_time: string;
-  end_time: string | null;
-  duration_minutes: number | null;
-  created_at: string;
+  userId: string;
+  mockTestId?: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+  type: "upcoming_test" | "result_available" | "feedback" | "system";
+}
+
+// Analytics
+export interface TestAnalytics {
+  userId: string;
+  mockTestId: string;
+  category: "reading" | "listening" | "writing" | "speaking";
+  score: number;
+  percentageScore: number;
+  completedAt: string;
+  timeSpent: number; // in seconds
+  questionsAttempted: number;
+  questionsCorrect: number;
+  strengths?: string[];
+  weaknesses?: string[];
+}
+
+// Progress
+export interface UserProgress {
+  userId: string;
+  category: "reading" | "listening" | "writing" | "speaking" | "overall";
+  level: "beginner" | "intermediate" | "advanced" | "expert";
+  score: number;
+  testsCompleted: number;
+  lastTestDate: string;
+  improvementAreas?: string[];
 }
