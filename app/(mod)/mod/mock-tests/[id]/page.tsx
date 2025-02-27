@@ -9,6 +9,7 @@ import {
   createQuestion,
   updateQuestion,
   deleteQuestion,
+  getAllQuestion,
 } from "@/controllers/MockTestController";
 import { MockTest, Question, QuestionType } from "@/lib/types/mock-test";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export default function MockTestDetailsPage({ params }: { params: { id: string }
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<QuestionType>("multiple_choice");
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user,checkUser } = useAuthStore();
 
   useEffect(() => {
     if (params.id) {
@@ -67,6 +68,7 @@ export default function MockTestDetailsPage({ params }: { params: { id: string }
   const fetchMockTest = async () => {
     try {
       const test = await getMockTestById(params.id);
+      await checkUser()
       setMockTest(test as MockTest);
     } catch (error) {
       console.error("Error fetching mock test:", error);
@@ -77,7 +79,9 @@ export default function MockTestDetailsPage({ params }: { params: { id: string }
   const fetchQuestions = async () => {
     try {
       setLoading(true);
+      console.log("sfasasfasfs")
       const fetchedQuestions = await getQuestionsByMockTestId(params.id);
+      console.log("fetch question = ", fetchedQuestions)
       setQuestions(fetchedQuestions as Question[]);
     } catch (error) {
       console.error("Error fetching questions:", error);
@@ -295,12 +299,12 @@ export default function MockTestDetailsPage({ params }: { params: { id: string }
                             <div className="space-y-2">
                               {question.options.map((option, i) => (
                                 <div 
-                                  key={option.id} 
+                                  key={JSON.parse(option).id} 
                                   className={`p-2 rounded-md ${option.isCorrect ? "bg-green-50 border border-green-200" : "bg-gray-50"}`}
                                 >
                                   <span className="mr-2">{String.fromCharCode(65 + i)}.</span>
-                                  {option.text}
-                                  {option.isCorrect && (
+                                  {JSON.parse(option).text}
+                                  {JSON.parse(option).isCorrect && (
                                     <span className="ml-2 text-green-600 text-sm">(Correct)</span>
                                   )}
                                 </div>

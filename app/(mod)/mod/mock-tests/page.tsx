@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
-import { getAllMockTests, deleteMockTest } from "@/controllers/MockTestController";
+import { getAllMockTests, deleteMockTest, testGetSingleDocument } from "@/controllers/MockTestController";
 import { MockTest } from "@/lib/types/mock-test";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +48,7 @@ export default function MockTestsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user,checkUser } = useAuthStore();
 
   useEffect(() => {
     fetchMockTests();
@@ -57,7 +57,9 @@ export default function MockTestsPage() {
   const fetchMockTests = async () => {
     try {
       setLoading(true);
+      await checkUser();
       const tests = await getAllMockTests();
+      console.log(tests)
       setMockTests(tests);
     } catch (error) {
       console.error("Error fetching mock tests:", error);
@@ -99,9 +101,10 @@ export default function MockTestsPage() {
     return new Date(dateString).toLocaleString();
   };
 
+
   if (!user || user.profile?.role !== "mod") {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen p-10">
         <Card className="w-[450px]">
           <CardHeader>
             <CardTitle className="text-center text-red-500">Access Denied</CardTitle>
@@ -115,7 +118,7 @@ export default function MockTestsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Mock Tests Management</h1>
         <Button onClick={() => router.push("/mod/mock-tests/create")}>

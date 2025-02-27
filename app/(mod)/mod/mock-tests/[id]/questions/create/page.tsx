@@ -96,7 +96,7 @@ export default function CreateQuestionPage({ params }: { params: { id: string } 
   const [questionType, setQuestionType] = useState<QuestionType>("multiple_choice");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuthStore();
+  const { user, checkUser } = useAuthStore();
 
   // Get the question type from the URL query parameter
   useEffect(() => {
@@ -114,6 +114,7 @@ export default function CreateQuestionPage({ params }: { params: { id: string } 
   }, [params.id]);
 
   const fetchMockTest = async () => {
+    await checkUser();
     try {
       const test = await getMockTestById(params.id);
       setMockTest(test as MockTest);
@@ -217,7 +218,11 @@ export default function CreateQuestionPage({ params }: { params: { id: string } 
         ...(values.questionImage && { questionImage: values.questionImage }),
         ...(values.audioUrl && { audioUrl: values.audioUrl }),
         ...(values.questionType === "multiple_choice" && {
-          options: (values as any).options,
+          options: values.options.map((option: any) => JSON.stringify({
+            id: option.id,
+            text: option.text,
+            isCorrect: option.isCorrect
+          })),
         }),
         ...(values.questionType === "fill_blank" && {
           correctAnswer: (values as any).correctAnswer,
@@ -226,6 +231,8 @@ export default function CreateQuestionPage({ params }: { params: { id: string } 
           correctAnswer: (values as any).correctAnswer,
         }),
       };
+
+      console.log("questionData = ", questionData)
       
       await createQuestion(questionData);
       toast.success("Question created successfully");

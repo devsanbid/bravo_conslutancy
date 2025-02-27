@@ -2,7 +2,6 @@
 import { ID } from "@/lib/appwrite/config"; // Adjust path if needed
 import { createAdminClient, createSessionClient } from "@/lib/server/appwrite";
 import { cookies } from "next/headers";
-import { Account, Client } from "node-appwrite";
 
 const sessionName = `a_session_${process.env.NEXT_PUBLIC_PROJECTID}`;
 
@@ -133,7 +132,6 @@ export async function resetPassword(
 	userId: string,
 	secret: string,
 	password: string,
-	passwordAgain: string,
 ) {
 	try {
 		const { account } = await createSessionClient();

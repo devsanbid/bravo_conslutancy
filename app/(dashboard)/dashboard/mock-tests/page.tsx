@@ -37,10 +37,12 @@ export default function MockTestsPage() {
     fetchMockTests();
   }, []);
 
+
   const fetchMockTests = async () => {
     try {
       setLoading(true);
       const tests = await getAllMockTests();
+      console.log("test all = " ,tests)
       // Filter only active tests for students
       const activeTests = (tests as MockTest[]).filter(test => test.isActive);
       setMockTests(activeTests);

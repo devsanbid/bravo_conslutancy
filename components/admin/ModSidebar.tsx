@@ -34,6 +34,11 @@ const routes = [
     href: "/mod/blog",
   },
   {
+    label: "Mock Tests",
+    icon: BookOpen,
+    href: "/mod/mock-tests",
+  },
+  {
     label: "Study Materials",
     icon: BookOpen,
     href: "/mod/materials",

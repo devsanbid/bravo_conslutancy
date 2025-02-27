@@ -84,6 +84,8 @@ export default function CreateMockTestPage() {
         ...values,
         createdBy: user.$id,
       };
+
+      console.log(mockTestData)
       
       await createMockTest(mockTestData);
       toast.success("Mock test created successfully");
