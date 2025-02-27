@@ -1,8 +1,7 @@
-"use server";
-
+"use server"
 import { ID } from "@/lib/appwrite/config";
 import { createAdminClient, createSessionClient } from "@/lib/server/appwrite";
-import {Query} from "node-appwrite"
+import { Query } from "node-appwrite";
 import {
 	MockTest,
 	Question,
@@ -16,8 +15,8 @@ export async function createMockTest(
 ) {
 	try {
 		const { databases } = await createAdminClient();
-		console.log("Mock Test ID = ", process.env.MOCKTEST_ID)
-const mockId = ID.unique();
+		console.log("Mock Test ID = ", process.env.MOCKTEST_ID);
+		const mockId = ID.unique();
 		const newMockTest = await databases.createDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
 			process.env.MOCKTEST_ID || "",
@@ -64,6 +63,14 @@ export async function deleteMockTest(id: string) {
 	try {
 		const { databases } = await createAdminClient();
 
+		// First, delete all associated questions
+		const questions = await getQuestionsByMockTestId(id);
+
+		for (const question of questions) {
+			await deleteQuestion(question.id);
+		}
+
+		// Then delete the mock test itself
 		await databases.deleteDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
 			process.env.MOCKTEST_ID || "",
@@ -80,16 +87,17 @@ export async function deleteMockTest(id: string) {
 // Get all mock tests
 export async function getAllMockTests() {
 	try {
-		const { databases } = await createAdminClient();
+		const { databases } = await createSessionClient();
 		console.log("Database ID:", process.env.NEXT_PUBLIC_DATABASEID);
 		console.log("MockTest ID:", process.env.MOCKTEST_ID);
 
 		const mockTests = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
 			process.env.MOCKTEST_ID || "",
-			[Query.limit(100)]
+			[Query.limit(20)],
+             
 		);
-		console.log(mockTests)
+		console.log("server mockTest =", mockTests);
 
 		return mockTests.documents;
 	} catch (error) {
@@ -101,21 +109,21 @@ export async function getAllMockTests() {
 // get single
 export async function testGetSingleDocument(docId: string) {
 	try {
-	  const { databases } = await createAdminClient();
-	  
-	  const document = await databases.getDocument(
-		process.env.NEXT_PUBLIC_DATABASEID || "",
-		process.env.MOCKTEST_ID || "",
-		docId
-	  );
-	  
-	  console.log("Found document:", document);
-	  return document;
+		const { databases } = await createAdminClient();
+
+		const document = await databases.getDocument(
+			process.env.NEXT_PUBLIC_DATABASEID || "",
+			process.env.MOCKTEST_ID || "",
+			docId,
+		);
+
+		console.log("Found document:", document);
+		return document;
 	} catch (error) {
-	  console.error("Error getting document:", error);
-	  throw error;
+		console.error("Error getting document:", error);
+		throw error;
 	}
-  }
+}
 
 // Get a single mock test by ID
 export async function getMockTestById(id: string) {
@@ -143,7 +151,7 @@ export async function getMockTestsByCategory(category: string) {
 		const mockTests = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
 			process.env.MOCKTEST_ID || "",
-			[`equal("category", "${category}")`],
+			[Query.equal("category", category)], // Correct: uses Query object
 		);
 
 		return mockTests.documents;
@@ -160,8 +168,8 @@ export async function getActiveMockTests() {
 
 		const mockTests = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.MOCKTEST_ID || "",
-			[`equal("isActive", true)`],
+			process.env.MOCKTEST_ID || "",
+			[Query.equal("isActive", true)], // Correct: uses Query object
 		);
 
 		return mockTests.documents;
@@ -179,8 +187,8 @@ export async function getUpcomingMockTests() {
 
 		const mockTests = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.MOCKTEST_ID || "",
-			[`greater("scheduledDate", "${now}")`, `equal("isActive", true)`],
+			process.env.MOCKTEST_ID || "",
+			[Query.greaterThan("scheduledDate", now), Query.equal("isActive", true)], // Correct: uses Query objects
 		);
 
 		return mockTests.documents;
@@ -195,13 +203,13 @@ export async function createQuestion(question: Omit<Question, "id">) {
 	try {
 		const { databases } = await createAdminClient();
 		const questionId = ID.unique();
-		console.log("question = ",question)
+		console.log("question = ", question);
 
 		const newQuestion = await databases.createDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
 			process.env.QUESTIONS_ID || "",
 			questionId,
-			{...question, id: questionId }
+			{ ...question, id: questionId },
 		);
 
 		return newQuestion;
@@ -218,7 +226,7 @@ export async function updateQuestion(id: string, question: Partial<Question>) {
 
 		const updatedQuestion = await databases.updateDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.QUESTIONS_ID || "",
+			process.env.QUESTIONS_ID || "",
 			id,
 			question,
 		);
@@ -237,7 +245,7 @@ export async function deleteQuestion(id: string) {
 
 		await databases.deleteDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.QUESTIONS_ID || "",
+			process.env.QUESTIONS_ID || "",
 			id,
 		);
 
@@ -251,16 +259,15 @@ export async function deleteQuestion(id: string) {
 // Get all questions for a mock test
 export async function getQuestionsByMockTestId(mockTestId: string) {
 	try {
-		const { databases } = await createAdminClient();
-console.log( "mockTestId = " ,mockTestId)
+		const { databases } = await createSessionClient();
+		console.log("mockTestId = ", mockTestId);
 
 		const questions = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.QUESTIONS_ID || "",
-			[Query.equal("mockTestId", mockTestId),
-Query.limit(100)
-			],
+			process.env.QUESTIONS_ID || "",
+			[Query.equal("mockTestId", mockTestId), Query.limit(100)],
 		);
+        console.log("question of this id =", mockTestId, "and question are = ", questions)
 
 		return questions.documents;
 	} catch (error) {
@@ -269,14 +276,16 @@ Query.limit(100)
 	}
 }
 
-export async function getAllQuestion(){
+export async function getAllQuestion() {
 	try {
-		const {databases} = await createAdminClient();
+		const { databases } = await createSessionClient();
 		const questions = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.QUESTIONS_ID || "",
-			[Query.limit(100)]
+			process.env.QUESTIONS_ID || "",
+			[Query.limit(20)],
 		);
+
+        console.log("questions = ", questions.documents)
 
 		return questions.documents;
 	} catch (error) {
@@ -292,11 +301,11 @@ export async function createStudentAttempt(
 	try {
 		const { databases } = await createAdminClient();
 
-		const studentId = ID.unique()
+		const studentId = ID.unique();
 
 		const newAttempt = await databases.createDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTATTEMPTS_ID || "",
+			process.env.STUDENTATTEMPTS_ID || "",
 			studentId,
 			{
 				...attempt,
@@ -323,7 +332,7 @@ export async function updateStudentAttempt(
 
 		const updatedAttempt = await databases.updateDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTATTEMPTS_ID || "",
+			process.env.STUDENTATTEMPTS_ID || "",
 			id,
 			attempt,
 		);
@@ -346,7 +355,7 @@ export async function completeStudentAttempt(
 
 		const completedAttempt = await databases.updateDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTATTEMPTS_ID || "",
+			process.env.STUDENTATTEMPTS_ID || "",
 			id,
 			{
 				completedAt: new Date().toISOString(),
@@ -370,7 +379,7 @@ export async function getStudentAttemptsByUserId(userId: string) {
 
 		const attempts = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTATTEMPTS_ID || "",
+			process.env.STUDENTATTEMPTS_ID || "",
 			[`equal("userId", "${userId}")`],
 		);
 
@@ -388,7 +397,7 @@ export async function getStudentAttemptById(id: string) {
 
 		const attempt = await databases.getDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTATTEMPTS_ID || "",
+			process.env.STUDENTATTEMPTS_ID || "",
 			id,
 		);
 
@@ -405,13 +414,13 @@ export async function createStudentResponse(
 ) {
 	try {
 		const { databases } = await createAdminClient();
-		const responseId = ID.unique()
+		const responseId = ID.unique();
 
 		const newResponse = await databases.createDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTRESPONSES_ID || "",
+			process.env.STUDENTRESPONSES_ID || "",
 			responseId,
-			{...response, id: responseId },
+			{ ...response, id: responseId },
 		);
 
 		return newResponse;
@@ -431,7 +440,7 @@ export async function updateStudentResponse(
 
 		const updatedResponse = await databases.updateDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTRESPONSES_ID || "",
+			process.env.STUDENTRESPONSES_ID || "",
 			id,
 			response,
 		);
@@ -450,7 +459,7 @@ export async function getStudentResponsesByAttemptId(attemptId: string) {
 
 		const responses = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTRESPONSES_ID || "",
+			process.env.STUDENTRESPONSES_ID || "",
 			[`equal("attemptId", "${attemptId}")`],
 		);
 
@@ -472,7 +481,7 @@ export async function gradeStudentResponse(
 
 		const gradedResponse = await databases.updateDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.STUDENTRESPONSES_ID || "",
+			process.env.STUDENTRESPONSES_ID || "",
 			id,
 			{
 				score,
@@ -498,11 +507,11 @@ export async function createNotification(
 ) {
 	try {
 		const { databases } = await createAdminClient();
-		const nofictaionId = ID.unique()
+		const nofictaionId = ID.unique();
 
 		const newNotification = await databases.createDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.NOTIFICATIONS_ID || "",
+			process.env.NOTIFICATIONS_ID || "",
 			nofictaionId,
 			{
 				userId,
@@ -529,7 +538,7 @@ export async function getUnreadNotificationsByUserId(userId: string) {
 
 		const notifications = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.NOTIFICATIONS_ID || "",
+			process.env.NOTIFICATIONS_ID || "",
 			[`equal("userId", "${userId}")`, `equal("read", false)`],
 		);
 
@@ -547,7 +556,7 @@ export async function markNotificationAsRead(id: string) {
 
 		const updatedNotification = await databases.updateDocument(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
-            process.env.NOTIFICATIONS_ID || "",
+			process.env.NOTIFICATIONS_ID || "",
 			id,
 			{
 				read: true,

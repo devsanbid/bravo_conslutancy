@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
-import { getAllMockTests, deleteMockTest, testGetSingleDocument } from "@/controllers/MockTestController";
+import { getAllMockTests, deleteMockTest } from "@/controllers/MockTestController";
 import { MockTest } from "@/lib/types/mock-test";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,23 +47,45 @@ export default function MockTestsPage() {
   const [mockTests, setMockTests] = useState<MockTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [refreshKey, setRefreshKey] = useState(0); // Add this line - refresh key to force re-renders
   const router = useRouter();
-  const { user,checkUser } = useAuthStore();
+  const { user, checkUser } = useAuthStore();
 
   useEffect(() => {
     fetchMockTests();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setRefreshKey(prev => prev + 1); // Force a refresh when returning to this page
+    };
+
+    window.addEventListener('focus', handleRouteChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleRouteChange);
+    };
   }, []);
 
   const fetchMockTests = async () => {
     try {
       setLoading(true);
       await checkUser();
+      
       const tests = await getAllMockTests();
-      console.log(tests)
-      setMockTests(tests);
+            console.log("mock test = ", tests)
+      
+      if (Array.isArray(tests)) {
+        setMockTests(tests);
+      } else {
+        console.error("Received non-array response:", tests);
+        setMockTests([]);
+        toast.error("Invalid response format from server");
+      }
     } catch (error) {
       console.error("Error fetching mock tests:", error);
       toast.error("Failed to load mock tests");
+      setMockTests([]); // Clear mock tests on error
     } finally {
       setLoading(false);
     }
@@ -72,8 +94,14 @@ export default function MockTestsPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteMockTest(id);
+      
+      // Remove the deleted test from the state immediately
+      setMockTests(prevTests => prevTests.filter(test => test.id !== id));
+      
       toast.success("Mock test deleted successfully");
-      fetchMockTests();
+      
+      // Force a fresh fetch to ensure state is in sync with the database
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error("Error deleting mock test:", error);
       toast.error("Failed to delete mock test");
@@ -101,7 +129,6 @@ export default function MockTestsPage() {
     return new Date(dateString).toLocaleString();
   };
 
-
   if (!user || user.profile?.role !== "mod") {
     return (
       <div className="flex items-center justify-center h-screen p-10">
@@ -121,7 +148,9 @@ export default function MockTestsPage() {
     <div className="container mx-auto py-6 p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Mock Tests Management</h1>
-        <Button onClick={() => router.push("/mod/mock-tests/create")}>
+        <Button onClick={() => {
+          router.push("/mod/mock-tests/create");
+        }}>
           <PlusCircle className="mr-2 h-4 w-4" /> Create New Test
         </Button>
       </div>
