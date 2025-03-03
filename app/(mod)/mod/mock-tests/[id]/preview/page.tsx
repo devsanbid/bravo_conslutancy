@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { getQuestionsByMockTestId, getMockTestById } from "@/controllers/MockTestController";
 import { Question, MockTest } from "@/lib/types/mock-test";
@@ -17,7 +17,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Pencil, Clock } from "lucide-react";
 import Image from "next/image";
 
-export default function PreviewQuestionPage({ params }: { params: { id: string } }) {
+export default function PreviewQuestionPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const [question, setQuestion] = useState<Question | null>(null);
   const [mockTest, setMockTest] = useState<MockTest | null>(null);
   const [loading, setLoading] = useState(true);

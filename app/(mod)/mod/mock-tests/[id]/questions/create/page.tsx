@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import {
@@ -109,19 +109,18 @@ type FormValues =
 	| (z.infer<typeof speakingSchema> & { questionType: "speaking" })
 	| (z.infer<typeof shortAnswerSchema> & { questionType: "short_answer" });
 
-export default function CreateQuestionPage({
-	params,
-}: { params: { id: string } }) {
-	const [mockTest, setMockTest] = useState<MockTest | null>(null);
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [questionType, setQuestionType] =
+export default function CreateQuestionPage(props: { params: Promise<{ id: string }> }) {
+    const params = use(props.params);
+    const [mockTest, setMockTest] = useState<MockTest | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [questionType, setQuestionType] =
 		useState<QuestionType>("multiple_choice");
-	const router = useRouter();
-	const searchParams = useSearchParams();
-	const { user, checkUser } = useAuthStore();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const { user, checkUser } = useAuthStore();
 
-	// Get the question type from the URL query parameter
-	useEffect(() => {
+    // Get the question type from the URL query parameter
+    useEffect(() => {
 		const typeParam = searchParams.get("type") as QuestionType | null;
 		if (
 			typeParam &&
@@ -137,14 +136,14 @@ export default function CreateQuestionPage({
 		}
 	}, [searchParams]);
 
-	// Fetch the mock test
-	useEffect(() => {
+    // Fetch the mock test
+    useEffect(() => {
 		if (params.id) {
 			fetchMockTest();
 		}
 	}, [params.id]);
 
-	const fetchMockTest = async () => {
+    const fetchMockTest = async () => {
 		await checkUser();
 		try {
 			const test = await getMockTestById(params.id);
@@ -155,8 +154,8 @@ export default function CreateQuestionPage({
 		}
 	};
 
-	// Create the form with the appropriate schema based on question type
-	const form = useForm<FormValues>({
+    // Create the form with the appropriate schema based on question type
+    const form = useForm<FormValues>({
 		resolver: zodResolver(
 			questionType === "multiple_choice"
 				? multipleChoiceSchema
@@ -192,14 +191,14 @@ export default function CreateQuestionPage({
 		} as any,
 	});
 
-	// Use field array for multiple choice options
-	const { fields, append, remove } = useFieldArray({
+    // Use field array for multiple choice options
+    const { fields, append, remove } = useFieldArray({
 		control: form.control,
 		name: "options" as any,
 	});
 
-	// Update form when question type changes
-	useEffect(() => {
+    // Update form when question type changes
+    useEffect(() => {
 		form.reset({
 			questionText: form.getValues("questionText"),
 			questionType,
@@ -222,7 +221,7 @@ export default function CreateQuestionPage({
 		} as any);
 	}, [questionType]);
 
-	const onSubmit = async (values: FormValues) => {
+    const onSubmit = async (values: FormValues) => {
 		if (!user) {
 			toast.error("You must be logged in to create a question");
 			return;
@@ -291,11 +290,11 @@ export default function CreateQuestionPage({
 		}
 	};
 
-	const handleAddOption = () => {
+    const handleAddOption = () => {
 		append({ id: ID.unique(), text: "", isCorrect: false });
 	};
 
-	if (!user || user.profile?.role !== "mod") {
+    if (!user || user.profile?.role !== "mod") {
 		return (
 			<div className="flex items-center justify-center h-screen">
 				<Card className="w-[450px]">
@@ -314,7 +313,7 @@ export default function CreateQuestionPage({
 		);
 	}
 
-	if (!mockTest) {
+    if (!mockTest) {
 		return (
 			<div className="container mx-auto py-6">
 				<div className="flex justify-center items-center h-40">
@@ -324,7 +323,7 @@ export default function CreateQuestionPage({
 		);
 	}
 
-	return (
+    return (
 		<div className="container mx-auto py-6">
 			<div className="flex items-center mb-6">
 				<Button variant="ghost" onClick={() => router.back()} className="mr-4">

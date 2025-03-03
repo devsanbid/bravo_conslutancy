@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import {
@@ -69,16 +69,15 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function EditQuestionPage({
-	params,
-}: { params: { id: string; questionId: string } }) {
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [questionData, setQuestionData] = useState<Question | null>(null);
-	const [loading, setLoading] = useState(true);
-	const router = useRouter();
-	const { user, checkUser } = useAuthStore();
+export default function EditQuestionPage(props: { params: Promise<{ id: string; questionId: string }> }) {
+    const params = use(props.params);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [questionData, setQuestionData] = useState<Question | null>(null);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+    const { user, checkUser } = useAuthStore();
 
-	const form = useForm<FormValues>({
+    const form = useForm<FormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			questionType: "multiple_choice",
@@ -96,7 +95,7 @@ export default function EditQuestionPage({
 		},
 	});
 
-	useEffect(() => {
+    useEffect(() => {
 		const fetchQuestion = async () => {
 			try {
 				setLoading(true);
@@ -157,9 +156,9 @@ export default function EditQuestionPage({
 		fetchQuestion();
 	}, [params.id, params.questionId, router, form]);
 
-	const questionType = form.watch("questionType");
+    const questionType = form.watch("questionType");
 
-	const addOption = () => {
+    const addOption = () => {
 		const currentOptions = form.getValues("options") || [];
 		form.setValue("options", [
 			...currentOptions,
@@ -167,7 +166,7 @@ export default function EditQuestionPage({
 		]);
 	};
 
-	const removeOption = (index: number) => {
+    const removeOption = (index: number) => {
 		const currentOptions = form.getValues("options") || [];
 		form.setValue(
 			"options",
@@ -175,10 +174,10 @@ export default function EditQuestionPage({
 		);
 	};
 
-	const formState = form.formState;
-	console.log("Form errors:", formState.errors);
+    const formState = form.formState;
+    console.log("Form errors:", formState.errors);
 
-	const onSubmit = async (values: FormValues) => {
+    const onSubmit = async (values: FormValues) => {
 		console.log("submiting.........");
 		if (!user) {
 			toast.error("You must be logged in to edit a question");
@@ -207,7 +206,7 @@ export default function EditQuestionPage({
 		}
 	};
 
-	if (!user || user.profile?.role !== "mod") {
+    if (!user || user.profile?.role !== "mod") {
 		return (
 			<div className="flex items-center justify-center h-screen">
 				<Card className="w-[450px]">
@@ -226,7 +225,7 @@ export default function EditQuestionPage({
 		);
 	}
 
-	if (loading) {
+    if (loading) {
 		return (
 			<div className="container mx-auto py-6">
 				<Card>
@@ -240,7 +239,7 @@ export default function EditQuestionPage({
 		);
 	}
 
-	return (
+    return (
 		<div className="container mx-auto py-6">
 			<div className="flex items-center mb-6">
 				<Button variant="ghost" onClick={() => router.back()} className="mr-4">

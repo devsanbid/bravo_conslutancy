@@ -31,6 +31,14 @@ import {
 } from "recharts";
 import { LogoutButton } from "@/components/main/LogoutButton";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { getStudentAttemptsByUserId, getMockTestById } from "@/controllers/MockTestController";
+import { useEffect, useState } from "react";
+import { StudentAttempt } from "@/lib/types/mock-test";
+
+interface AttemptWithMockTest extends StudentAttempt {
+    mockTestName: string;
+    mockTestCategory: string;
+}
 
 const lineChartData = [
 	{ name: "Week 1", score: 6.5 },
@@ -205,8 +213,64 @@ const Analytics = () => (
 
 export default function DashboardPage() {
 	const router = useRouter();
-    const {user} = useAuthStore();
-    console.log(user)
+    const { user } = useAuthStore();
+    const [attempts, setAttempts] = useState<AttemptWithMockTest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchAttempts = async() => {
+            setLoading(true);
+            try{
+                if(!user) {
+                    console.log("User not logged in");
+                    return;
+                }
+                const studentId = user.id;
+
+                const attemptsData = await getStudentAttemptsByUserId(studentId);
+
+                const attemptsWithMockTest: AttemptWithMockTest[] = await Promise.all(
+                    attemptsData.map(async (attempt) => {
+                        const mockTest = await getMockTestById(attempt.mockTestId);
+                        return {
+                            id: attempt.$id,
+                            userId: attempt.userId,
+                            mockTestId: attempt.mockTestId,
+                            startedAt: attempt.startedAt,
+                            completedAt: attempt.completedAt,
+                            status: attempt.status,
+                            totalScore: attempt.totalScore,
+                            percentageScore: attempt.percentageScore,
+                            mockTestName: mockTest.name,
+                            mockTestCategory: mockTest.category
+                        }
+                    })
+                )
+                setAttempts(attemptsWithMockTest);
+
+            } catch (error: any) {
+                setError(error.message);
+
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchAttempts();
+    }, [user])
+
+    if (loading) {
+		return (
+			<div className="flex items-center justify-center min-h-screen">
+				Loading...
+			</div>
+		);
+	}
+    if (error) {
+        return <div>Error: {error}</div>;
+    }
+
+
 	return (
 		<div className="h-full p-6 space-y-6">
 			<div className="flex items-center justify-between">
@@ -391,11 +455,11 @@ export default function DashboardPage() {
 					</div>
 				</TabsContent>
 				<TabsContent value="analytics" className="space-y-6">
-					<Analytics />
+					
 				</TabsContent>
 
 				<TabsContent value="reports" className="space-y-6">
-					<Reports />
+					
 				</TabsContent>
 			</Tabs>
 		</div>

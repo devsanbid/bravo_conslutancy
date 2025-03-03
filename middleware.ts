@@ -8,7 +8,7 @@ const publicRoutes = ["/", "/login", "/register", "/forgotpassword"];
 async function getUserAndRole(request: NextRequest) {
   try {
     // Get the cookie store from Next.js
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionName = `a_session_${process.env.NEXT_PUBLIC_PROJECTID}`;
     
     if (!cookieStore.has(sessionName)) {

@@ -5,19 +5,20 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
 interface BlogPostPageProps {
-	params: {
+	params: Promise<{
 		id: string;
-	};
+	}>;
 }
 
-export default function BlogPostPage({ params }: BlogPostPageProps) {
-	const post = blogPosts.find((post) => post.id === parseInt(params.id));
+export default async function BlogPostPage(props: BlogPostPageProps) {
+    const params = await props.params;
+    const post = blogPosts.find((post) => post.id === parseInt(params.id));
 
-	if (!post) {
+    if (!post) {
 		notFound();
 	}
 
-	return (
+    return (
 		<div className="container px-4 py-8">
 			<Link href="/blog">
 				<Button variant="ghost" className="mb-6 ml-10 gap-2">

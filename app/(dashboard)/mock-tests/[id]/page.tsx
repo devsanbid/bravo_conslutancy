@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import {
@@ -41,24 +41,23 @@ import {
 	CheckCircle,
 } from "lucide-react";
 
-export default function MockTestDetailsPage({
-	params,
-}: { params: { id: string } }) {
-	const [mockTest, setMockTest] = useState<MockTest | null>(null);
-	const [questions, setQuestions] = useState<Question[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [startDialogOpen, setStartDialogOpen] = useState(false);
-	const router = useRouter();
-	const { user,checkUser } = useAuthStore();
+export default function MockTestDetailsPage(props: { params: Promise<{ id: string }> }) {
+    const params = use(props.params);
+    const [mockTest, setMockTest] = useState<MockTest | null>(null);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [startDialogOpen, setStartDialogOpen] = useState(false);
+    const router = useRouter();
+    const { user,checkUser } = useAuthStore();
 
-	useEffect(() => {
+    useEffect(() => {
 		if (params.id) {
 			fetchMockTest();
 			fetchQuestions();
 		}
 	}, [params.id]);
 
-	const fetchMockTest = async () => {
+    const fetchMockTest = async () => {
 		try {
 			const test = await getMockTestById(params.id);
             await checkUser()
@@ -69,7 +68,7 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const fetchQuestions = async () => {
+    const fetchQuestions = async () => {
 		try {
 			setLoading(true);
 			const fetchedQuestions = await getQuestionsByMockTestId(params.id);
@@ -83,7 +82,7 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const handleStartTest = async () => {
+    const handleStartTest = async () => {
 		if (!user) {
 			toast.error("You must be logged in to take this test");
 			return;
@@ -111,7 +110,7 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const getCategoryIcon = (category: string) => {
+    const getCategoryIcon = (category: string) => {
 		switch (category) {
 			case "reading":
 				return <FileText className="h-5 w-5 mr-2" />;
@@ -126,13 +125,13 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const formatDate = (dateString?: string) => {
+    const formatDate = (dateString?: string) => {
 		if (!dateString) return "Available now";
 		const date = new Date(dateString);
 		return date.toLocaleString();
 	};
 
-	const isTestAvailable = () => {
+    const isTestAvailable = () => {
 		if (!mockTest) return false;
 
 		// If the test has a scheduled date, check if it's in the past
@@ -146,11 +145,11 @@ export default function MockTestDetailsPage({
 		return mockTest.isActive;
 	};
 
-	const getQuestionTypeCount = (type: string) => {
+    const getQuestionTypeCount = (type: string) => {
 		return questions.filter((q) => q.questionType === type).length;
 	};
 
-	if (!user) {
+    if (!user) {
 		return (
 			<div className="flex items-center justify-center h-screen">
 				<Card className="w-[450px]">
@@ -169,7 +168,7 @@ export default function MockTestDetailsPage({
 		);
 	}
 
-	if (loading || !mockTest) {
+    if (loading || !mockTest) {
 		return (
 			<div className="container mx-auto py-6">
 				<div className="flex justify-center items-center h-40">
@@ -179,7 +178,7 @@ export default function MockTestDetailsPage({
 		);
 	}
 
-	return (
+    return (
 		<div className="container mx-auto py-6">
 			<div className="flex items-center mb-6">
 				<Button

@@ -15,11 +15,12 @@ export const metadata: Metadata = {
   title: 'Student Dashboard - Bravo Consultancy',
   description: 'Track your learning progress, access study materials, and prepare for your IELTS, PTE, GRE, or SAT exam.',
   keywords: ['dashboard', 'student portal', 'learning progress', 'IELTS preparation', 'PTE coaching', 'GRE training', 'SAT preparation'],
+
   openGraph: {
     title: 'Student Dashboard - Bravo Consultancy',
     description: 'Track your learning progress, access study materials, and prepare for your IELTS, PTE, GRE, or SAT exam.',
     type: 'website',
-  },
+  }
 };
 
 export default function DashboardLayout({

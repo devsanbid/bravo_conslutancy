@@ -8,7 +8,7 @@ export async function createSessionClient() {
 		.setProject(process.env.NEXT_PUBLIC_PROJECTID || "");
 
 	const sessionName = `a_session_${process.env.NEXT_PUBLIC_PROJECTID}`;
-	const session = cookies().get(sessionName);
+	const session = (await cookies()).get(sessionName);
 
 	if (!session || !session.value) {
 		throw new Error("No session");

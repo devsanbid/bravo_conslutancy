@@ -29,7 +29,7 @@ const slides = [
 export default function ImageSlider() {
   const [currentSlide, setCurrentSlide] = React.useState(0);
   const [isPlaying, setIsPlaying] = React.useState(true);
-  const timerRef = React.useRef<NodeJS.Timeout>();
+  const timerRef = React.useRef<NodeJS.Timeout>(undefined);
 
   const goToNextSlide = React.useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);

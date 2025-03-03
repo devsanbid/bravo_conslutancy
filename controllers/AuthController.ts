@@ -85,7 +85,7 @@ export async function login(email: string, password: string) {
 		const { account } = await createAdminClient();
 		const session = await account.createEmailPasswordSession(email, password);
 
-		cookies().set(sessionName, session.secret, {
+		(await cookies()).set(sessionName, session.secret, {
 			path: "/",
 			httpOnly: true,
 			sameSite: "strict",
@@ -110,7 +110,7 @@ export async function login(email: string, password: string) {
 export async function logout() {
 	try {
 		const { account } = await createSessionClient();
-		cookies().delete(sessionName);
+		(await cookies()).delete(sessionName);
 		await account.deleteSession("current");
 	} catch (error) {
 		console.error("Logout error:", error);

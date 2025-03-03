@@ -200,23 +200,28 @@ export async function getUpcomingMockTests() {
 
 // Create a new question for a mock test
 export async function createQuestion(question: Omit<Question, "id">) {
-	try {
-		const { databases } = await createAdminClient();
-		const questionId = ID.unique();
-		console.log("question = ", question);
+    try {
+        const { databases } = await createAdminClient();
+        const questionId = ID.unique();
+        console.log("question = ", question);
 
-		const newQuestion = await databases.createDocument(
-			process.env.NEXT_PUBLIC_DATABASEID || "",
-			process.env.QUESTIONS_ID || "",
-			questionId,
-			{ ...question, id: questionId },
-		);
+        // Get existing questions for the mock test to determine the order
+        const existingQuestions = await getQuestionsByMockTestId(question.mockTestId);
+        const maxOrder = existingQuestions.reduce((max, q) => Math.max(max, q.order || 0), 0);
+        const newOrder = maxOrder + 1;
 
-		return newQuestion;
-	} catch (error) {
-		console.error("Error creating question:", error);
-		throw error;
-	}
+        const newQuestion = await databases.createDocument(
+            process.env.NEXT_PUBLIC_DATABASEID || "",
+            process.env.QUESTIONS_ID || "",
+            questionId,
+            { ...question, id: questionId, order: newOrder }, // Include order
+        );
+
+        return newQuestion;
+    } catch (error) {
+        console.error("Error creating question:", error);
+        throw error;
+    }
 }
 
 // Update an existing question
@@ -276,22 +281,63 @@ export async function getQuestionsByMockTestId(mockTestId: string) {
 	}
 }
 
+// Modified to handle fetching all questions in batches
 export async function getAllQuestion() {
-	try {
-		const { databases } = await createSessionClient();
-		const questions = await databases.listDocuments(
-			process.env.NEXT_PUBLIC_DATABASEID || "",
-			process.env.QUESTIONS_ID || "",
-			[Query.limit(20)],
-		);
+    try {
+        const { databases } = await createAdminClient(); // Use admin client
+        let allQuestions: any[] = [];
+        let offset = 0;
+        const limit = 100; // Fetch in batches of 100
+        let hasMore = true;
 
-        console.log("questions = ", questions.documents)
+        while (hasMore) {
+            const questions = await databases.listDocuments(
+                process.env.NEXT_PUBLIC_DATABASEID || "",
+                process.env.QUESTIONS_ID || "",
+                [Query.limit(limit), Query.offset(offset)],
+            );
 
-		return questions.documents;
-	} catch (error) {
-		console.error("Error getting questions by mock test ID:", error);
-		throw error;
-	}
+            allQuestions = allQuestions.concat(questions.documents);
+            offset += limit;
+            hasMore = questions.documents.length === limit;
+        }
+
+        console.log("questions = ", allQuestions);
+        return allQuestions;
+    } catch (error) {
+        console.error("Error getting all questions:", error);
+        throw error;
+    }
+}
+
+// Data migration function to add 'order' to existing questions
+export async function updateExistingQuestionsWithOrder() {
+    try {
+        const { databases } = await createAdminClient();
+        const allQuestions = await getAllQuestion(); // Assuming this fetches all questions
+
+        for (const question of allQuestions) {
+            if (question.order === undefined) { // Only update if order is missing
+                // Get existing questions for the mock test to determine the order
+                const existingQuestions = await getQuestionsByMockTestId(question.mockTestId);
+                const maxOrder = existingQuestions.reduce((max, q) => Math.max(max, q.order || 0), 0);
+                const newOrder = maxOrder + 1;
+
+                await databases.updateDocument(
+                    process.env.NEXT_PUBLIC_DATABASEID || "",
+                    process.env.QUESTIONS_ID || "",
+                    question.$id,
+                    { order: newOrder }
+                );
+                console.log(`Updated question ${question.$id} with order ${newOrder}`);
+            }
+        }
+        return { success: true };
+
+    } catch (error) {
+        console.error("Error updating existing questions:", error);
+        throw error;
+    }
 }
 
 // Create a new student attempt

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/stores/authStore";
 import {
 	getStudentAttemptById,
 	getQuestionsByMockTestId,
+    getMockTestById,
 	updateStudentResponse,
 	completeStudentAttempt,
 } from "@/controllers/MockTestController";
@@ -25,67 +26,82 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
-export default function TakeExamPage({
-	params,
-}: {
-	params: { id: string; attemptId: string };
-}) {
-	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-	const [questions, setQuestions] = useState<Question[]>([]);
-	const [responses, setResponses] = useState<{ [key: string]: string }>({});
-	const [timeRemaining, setTimeRemaining] = useState<number>(0);
-	const [loading, setLoading] = useState(true);
-	const router = useRouter();
-	const { user, checkUser } = useAuthStore();
+export default function TakeExamPage(
+    props: {
+        params: Promise<{ id: string; attemptId: string }>;
+    }
+) {
+    const params = use(props.params);
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [responses, setResponses] = useState<{ [key: string]: string }>({});
+    const [timeRemaining, setTimeRemaining] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+    const { user, checkUser } = useAuthStore();
 
-	useEffect(() => {
-		const loadExam = async () => {
-			try {
-				setLoading(true);
-				checkUser();
-				const attempt = await getStudentAttemptById(params.attemptId);
-				const examQuestions = await getQuestionsByMockTestId(params.id);
+    useEffect(() => {
+      const loadExam = async () => {
+        try {
+          setLoading(true);
+          checkUser();
+          const attempt = await getStudentAttemptById(params.attemptId);
+          const examQuestions = await getQuestionsByMockTestId(params.id);
+          const mockTest = await getMockTestById(params.id); // Fetch mock test
 
-				// Parse the options for multiple choice questions
-				const parsedQuestions = examQuestions.map((question) => {
-					if (
-						question.questionType === "multiple_choice" &&
-						Array.isArray(question.options)
-					) {
-						return {
-							...question,
-							options: question.options.map((opt) => {
-								try {
-									return typeof opt === "string" ? JSON.parse(opt) : opt;
-								} catch (e) {
-									console.error("Error parsing option:", opt);
-									return {
-										id: crypto.randomUUID(),
-										text: opt,
-										isCorrect: false,
-									};
-								}
-							}),
-						};
-					}
-					return question;
-				});
+          // Map Documents to Question objects
+          const typedQuestions = examQuestions.map((doc) => ({
+            id: doc.$id,
+            mockTestId: doc.mockTestId,
+            questionType: doc.questionType,
+            questionText: doc.questionText,
+            options: doc.options,
+            instructions: doc.instructions,
+            questionImage: doc.questionImage,
+            marks: doc.marks,
+            order: doc.order, // Add the order property
+          }));
 
-				setQuestions(parsedQuestions);
-				setTimeRemaining(attempt.timeLimit * 60);
-			} catch (error) {
-				console.error("Error loading exam:", error);
-				toast.error("Failed to load exam");
-			} finally {
-				setLoading(false);
-			}
-		};
+          // Parse the options for multiple choice questions
+          const parsedQuestions = typedQuestions.map((question) => {
+            if (
+              question.questionType === "multiple_choice" &&
+              Array.isArray(question.options)
+            ) {
+              return {
+                ...question,
+                options: question.options.map((opt) => {
+                  try {
+                    return typeof opt === "string" ? JSON.parse(opt) : opt;
+                  } catch (e) {
+                    console.error("Error parsing option:", opt);
+                    return {
+                      id: crypto.randomUUID(),
+                      text: opt,
+                      isCorrect: false,
+                    };
+                  }
+                }),
+              };
+            }
+            return question;
+          });
 
-		loadExam();
-	}, [params.id, params.attemptId]);
+          setQuestions(parsedQuestions);
+          setTimeRemaining(mockTest.duration * 60); // Use mock test duration
+        } catch (error) {
+          console.error("Error loading exam:", error);
+          toast.error("Failed to load exam");
+        } finally {
+          setLoading(false);
+        }
+      };
 
-	// Timer logic
-	useEffect(() => {
+      loadExam();
+    }, [params.id, params.attemptId]);
+
+    // Timer logic
+    useEffect(() => {
 		if (timeRemaining <= 0) return;
 
 		const timer = setInterval(() => {
@@ -102,7 +118,7 @@ export default function TakeExamPage({
 		return () => clearInterval(timer);
 	}, [timeRemaining]);
 
-	const handleAnswer = async (questionId: string, answer: string) => {
+    const handleAnswer = async (questionId: string, answer: string) => {
 		console.log("answer", answer);
 		console.log("questionId", questionId);
         console.log("attemptId", params.attemptId);
@@ -120,7 +136,7 @@ export default function TakeExamPage({
 		}
 	};
 
-	const handleSubmitExam = async () => {
+    const handleSubmitExam = async () => {
 		try {
 			// Calculate score based on responses
 			let totalScore = 0;
@@ -151,7 +167,7 @@ export default function TakeExamPage({
 		}
 	};
 
-	if (loading) {
+    if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
 				<Card className="w-[400px]">
@@ -163,9 +179,9 @@ export default function TakeExamPage({
 		);
 	}
 
-	const currentQuestion = questions[currentQuestionIndex];
+    const currentQuestion = questions[currentQuestionIndex];
 
-	return (
+    return (
 		<div className="container mx-auto py-6 p-10">
 			<Card className="mb-4">
 				<CardHeader>

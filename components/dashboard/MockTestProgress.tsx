@@ -178,7 +178,7 @@ export default function MockTestProgress() {
                   <Progress 
                     value={progress[category].average} 
                     className="h-2"
-                    indicatorClassName={getProgressColor(progress[category].average)}
+                    indicatorclassname={getProgressColor(progress[category].average)}
                   />
                 </div>
                 

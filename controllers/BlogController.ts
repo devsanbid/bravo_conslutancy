@@ -1,74 +1,104 @@
-import { databases } from '@/lib/appwrite/config';
-import { ID } from 'appwrite';
+"use server"
+import { ID } from "@/lib/appwrite/config";
+import { createAdminClient, createSessionClient } from "@/lib/server/appwrite";
+import { Query } from "node-appwrite";
+import { Blog } from "@/lib/types/blog";
 
-export class BlogController {
-  private static readonly DATABASE_ID = 'your_database_id';
-  private static readonly COLLECTION_ID = 'blogs';
-
-  static async createBlog(title: string, content: string, category: string, authorId: string) {
+// Create a new blog post
+export async function createBlogPost(blogPost: Omit<Blog, "id" | "createdAt" | "updatedAt">) {
     try {
-      return await databases.createDocument(
-        this.DATABASE_ID,
-        this.COLLECTION_ID,
-        ID.unique(),
-        {
-          title,
-          content,
-          category,
-          author_id: authorId,
-          created_at: new Date().toISOString()
-        }
-      );
-    } catch (error) {
-      throw error;
-    }
-  }
+        const { databases } = await createAdminClient();
+        const blogId = ID.unique();
+        console.log("type of content", typeof(blogPost.content))
+        const newBlogPost = await databases.createDocument(
+            process.env.NEXT_PUBLIC_DATABASEID || "",
+            process.env.BLOG_ID || "",
+            blogId,
+            {
+                id: blogId,
+                ...blogPost,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            },
+        );
 
-  static async getBlogs() {
-    try {
-      return await databases.listDocuments(
-        this.DATABASE_ID,
-        this.COLLECTION_ID
-      );
+        return newBlogPost;
     } catch (error) {
-      throw error;
+        console.error("Error creating blog post:", error);
+        throw error; // Re-throw the error so the calling function can handle it
     }
-  }
+}
 
-  static async getBlog(id: string) {
+// Get all blog posts (with pagination and filtering)
+// TODO: Add filtering options (e.g., by author, category, tags)
+export async function getBlogPosts(limit = 25, offset = 0) {
     try {
-      return await databases.getDocument(
-        this.DATABASE_ID,
-        this.COLLECTION_ID,
-        id
-      );
+        const { databases } = await createSessionClient();
+        const posts = await databases.listDocuments(
+            process.env.NEXT_PUBLIC_DATABASEID || "",
+            process.env.BLOG_ID || "",
+            [
+                Query.limit(limit),
+                Query.offset(offset),
+                Query.orderDesc("createdAt"), // Newest posts first
+                Query.equal("published", true), // Only published posts
+            ]
+        );
+        return posts.documents;
     } catch (error) {
-      throw error;
+        console.error("Error getting blog posts:", error);
+        throw error;
     }
-  }
+}
 
-  static async updateBlog(id: string, data: any) {
+// Get a single blog post by ID
+export async function getBlogPostById(id: string) {
     try {
-      return await databases.updateDocument(
-        this.DATABASE_ID,
-        this.COLLECTION_ID,
-        id,
-        data
-      );
+        const { databases } = await createAdminClient();
+        const post = await databases.getDocument(
+            process.env.NEXT_PUBLIC_DATABASEID || "",
+            process.env.BLOG_ID || "",
+            id
+        );
+        return post;
     } catch (error) {
-      throw error;
+        console.error("Error getting blog post by ID:", error);
+        throw error; // Might want to handle 404 specifically
     }
-  }
+}
 
-  static async deleteBlog(id: string) {
+// Update an existing blog post
+export async function updateBlogPost(id: string, blogPost: Partial<Blog>) {
     try {
-      await databases.deleteDocument(
-        this.DATABASE_ID,
-        this.COLLECTION_ID,
-        id
-      );
+        const { databases } = await createAdminClient();
+        const updatedPost = await databases.updateDocument(
+            process.env.NEXT_PUBLIC_DATABASEID || "",
+            process.env.BLOG_ID || "",
+            id,
+            {
+                ...blogPost,
+                updatedAt: new Date().toISOString(), // Always update updatedAt
+            },
+        );
+        return updatedPost;
     } catch (error) {
-      throw error;
+        console.error("Error updating blog post:", error);
+        throw error;
     }
-  }
+}
+
+// Delete a blog post
+export async function deleteBlogPost(id: string) {
+    try {
+        const { databases } = await createAdminClient();
+        await databases.deleteDocument(
+            process.env.NEXT_PUBLIC_DATABASEID || "",
+            process.env.BLOG_ID || "",
+            id
+        );
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting blog post:", error);
+        throw error;
+    }
 }

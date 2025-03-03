@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import {
@@ -54,24 +54,23 @@ import {
 	Mic,
 } from "lucide-react";
 
-export default function MockTestDetailsPage({
-	params,
-}: { params: { id: string } }) {
-	const [mockTest, setMockTest] = useState<MockTest | null>(null);
-	const [questions, setQuestions] = useState<Question[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [activeTab, setActiveTab] = useState<QuestionType>("multiple_choice");
-	const router = useRouter();
-	const { user, checkUser } = useAuthStore();
+export default function MockTestDetailsPage(props: { params: Promise<{ id: string }> }) {
+    const params = use(props.params);
+    const [mockTest, setMockTest] = useState<MockTest | null>(null);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<QuestionType>("multiple_choice");
+    const router = useRouter();
+    const { user, checkUser } = useAuthStore();
 
-	useEffect(() => {
+    useEffect(() => {
 		if (params.id) {
 			fetchMockTest();
 			fetchQuestions();
 		}
 	}, [params.id]);
 
-	const fetchMockTest = async () => {
+    const fetchMockTest = async () => {
 		try {
 			const test = await getMockTestById(params.id);
 			console.log("test = ", test);
@@ -83,7 +82,7 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const fetchQuestions = async () => {
+    const fetchQuestions = async () => {
 		try {
 			setLoading(true);
 			console.log("sfasasfasfs");
@@ -98,7 +97,7 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const handleDeleteQuestion = async (id: string) => {
+    const handleDeleteQuestion = async (id: string) => {
 		try {
 			await deleteQuestion(id);
 			toast.success("Question deleted successfully");
@@ -109,7 +108,7 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const getCategoryIcon = (category: string) => {
+    const getCategoryIcon = (category: string) => {
 		switch (category) {
 			case "reading":
 				return <FileText className="h-5 w-5 mr-2" />;
@@ -124,11 +123,11 @@ export default function MockTestDetailsPage({
 		}
 	};
 
-	const filteredQuestions = () => {
+    const filteredQuestions = () => {
 		return questions.filter((q) => q.questionType === activeTab);
 	};
 
-	if (!user || user.profile?.role !== "mod") {
+    if (!user || user.profile?.role !== "mod") {
 		return (
 			<div className="flex items-center justify-center h-screen">
 				<Card className="w-[450px]">
@@ -147,7 +146,7 @@ export default function MockTestDetailsPage({
 		);
 	}
 
-	if (!mockTest) {
+    if (!mockTest) {
 		return (
 			<div className="container mx-auto py-6">
 				<div className="flex justify-center items-center h-40">
@@ -157,7 +156,7 @@ export default function MockTestDetailsPage({
 		);
 	}
 
-	return (
+    return (
 		<div className="container mx-auto py-6">
 			<div className="flex items-center mb-6">
 				<Button
