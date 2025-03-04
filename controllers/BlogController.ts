@@ -31,9 +31,9 @@ export async function createBlogPost(blogPost: Omit<Blog, "id" | "createdAt" | "
 
 // Get all blog posts (with pagination and filtering)
 // TODO: Add filtering options (e.g., by author, category, tags)
-export async function getBlogPosts(limit = 25, offset = 0) {
+export async function getBlogPosts(limit = 25, offset = 0, forStaticGeneration = false) {
     try {
-        const { databases } = await createSessionClient();
+        const { databases } = forStaticGeneration ? await createAdminClient() : await createSessionClient();
         const posts = await databases.listDocuments(
             process.env.NEXT_PUBLIC_DATABASEID || "",
             process.env.BLOG_ID || "",
@@ -41,7 +41,7 @@ export async function getBlogPosts(limit = 25, offset = 0) {
                 Query.limit(limit),
                 Query.offset(offset),
                 Query.orderDesc("createdAt"), // Newest posts first
-                Query.equal("published", true), // Only published posts
+                ...(forStaticGeneration ? [] : [Query.equal("published", true)]), // Only published posts
             ]
         );
         return posts.documents;

@@ -73,7 +73,11 @@ export function Sidebar() {
   const [userDetails, setUserDetails] = useState<any>(null);
   const router = useRouter();
 
-  const { user, setUser, setLoading } = useAuthStore();
+  const { user, setUser, setLoading,checkUser } = useAuthStore();
+
+  useEffect(() => {
+    checkUser();
+  }, []);
 
   useEffect(() => {
     if (user && user.profile) {

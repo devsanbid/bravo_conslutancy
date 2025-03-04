@@ -18,7 +18,7 @@ import {
   LogOut,
   User,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { logout } from "@/controllers/AuthController";
@@ -79,7 +79,11 @@ export function AdminSidebar() {
   const [userDetails, setUserDetails] = useState<any>(null);
   const router = useRouter();
 
-  const { user, setUser, setLoading } = useAuthStore();
+  const { user, setUser, setLoading,checkUser } = useAuthStore();
+
+  useEffect(() => {
+    checkUser()
+  }, []);
 
   useEffect(() => {
     if (user && user.profile) {

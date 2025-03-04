@@ -426,7 +426,7 @@ export async function getStudentAttemptsByUserId(userId: string) {
 		const attempts = await databases.listDocuments(
 			process.env.NEXT_PUBLIC_DATABASEID || "",
 			process.env.STUDENTATTEMPTS_ID || "",
-			[`equal("userId", "${userId}")`],
+			[Query.equal("userId", userId)],
 		);
 
 		return attempts.documents;

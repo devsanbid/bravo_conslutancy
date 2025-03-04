@@ -213,41 +213,43 @@ const Analytics = () => (
 
 export default function DashboardPage() {
 	const router = useRouter();
-    const { user } = useAuthStore();
+    const { user,checkUser } = useAuthStore();
     const [attempts, setAttempts] = useState<AttemptWithMockTest[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchAttempts = async() => {
-            setLoading(true);
+
             try{
                 if(!user) {
-                    console.log("User not logged in");
-                    return;
+                await checkUser();
                 }
-                const studentId = user.id;
+                if(user){
+                    const studentId = user.id;
 
-                const attemptsData = await getStudentAttemptsByUserId(studentId);
+                    const attemptsData = await getStudentAttemptsByUserId(studentId);
 
-                const attemptsWithMockTest: AttemptWithMockTest[] = await Promise.all(
-                    attemptsData.map(async (attempt) => {
-                        const mockTest = await getMockTestById(attempt.mockTestId);
-                        return {
-                            id: attempt.$id,
-                            userId: attempt.userId,
-                            mockTestId: attempt.mockTestId,
-                            startedAt: attempt.startedAt,
-                            completedAt: attempt.completedAt,
-                            status: attempt.status,
-                            totalScore: attempt.totalScore,
-                            percentageScore: attempt.percentageScore,
-                            mockTestName: mockTest.name,
-                            mockTestCategory: mockTest.category
-                        }
-                    })
-                )
-                setAttempts(attemptsWithMockTest);
+                    const attemptsWithMockTest: AttemptWithMockTest[] = await Promise.all(
+                        attemptsData.map(async (attempt) => {
+                            const mockTest = await getMockTestById(attempt.mockTestId);
+                            return {
+                                id: attempt.$id,
+                                userId: attempt.userId,
+                                mockTestId: attempt.mockTestId,
+                                startedAt: attempt.startedAt,
+                                completedAt: attempt.completedAt,
+                                status: attempt.status,
+                                totalScore: attempt.totalScore,
+                                percentageScore: attempt.percentageScore,
+                                mockTestName: mockTest.name,
+                                mockTestCategory: mockTest.category
+                            }
+                        })
+                    )
+                    setAttempts(attemptsWithMockTest);
+                }
+
 
             } catch (error: any) {
                 setError(error.message);
@@ -257,9 +259,9 @@ export default function DashboardPage() {
             }
         }
         fetchAttempts();
-    }, [user])
+    }, [])
 
-    if (loading) {
+     if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
 				Loading...
@@ -378,7 +380,6 @@ export default function DashboardPage() {
 									<Progress
 										value={80}
 										className="bg-gray-100 h-2"
-										indicatorclassname="bg-brand-orange"
 									/>
 								</div>
 								<div className="space-y-2">
@@ -389,7 +390,6 @@ export default function DashboardPage() {
 									<Progress
 										value={75}
 										className="bg-gray-100 h-2"
-										indicatorclassname="bg-brand-orange"
 									/>
 								</div>
 								<div className="space-y-2">
@@ -400,7 +400,6 @@ export default function DashboardPage() {
 									<Progress
 										value={65}
 										className="bg-gray-100 h-2"
-										indicatorclassname="bg-brand-orange"
 									/>
 								</div>
 								<div className="space-y-2">
@@ -411,7 +410,6 @@ export default function DashboardPage() {
 									<Progress
 										value={70}
 										className="bg-gray-100 h-2"
-										indicatorclassname="bg-brand-orange"
 									/>
 								</div>
 							</div>
@@ -455,11 +453,11 @@ export default function DashboardPage() {
 					</div>
 				</TabsContent>
 				<TabsContent value="analytics" className="space-y-6">
-					
+
 				</TabsContent>
 
 				<TabsContent value="reports" className="space-y-6">
-					
+
 				</TabsContent>
 			</Tabs>
 		</div>
