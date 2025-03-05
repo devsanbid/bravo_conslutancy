@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,12 +21,16 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Send, Phone, User } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { createGuestUser, sendMessage, subscribeToMessages } from "@/controllers/chatController";
+import { useAuthStore } from "@/lib/stores/authStore";
 
 interface Message {
-  id: string;
+  $id: string;
   text: string;
-  sender: "user" | "admin";
-  timestamp: Date;
+  senderId: string;
+  receiverId: string;
+  timestamp: string;
 }
 
 interface Chat {
@@ -38,51 +42,130 @@ interface Chat {
 }
 
 export default function ChatWidget() {
+  // Get authentication state first
+  const { user } = useAuthStore();
+  const { toast } = useToast();
+  
+  // Initialize all state and refs
   const [isStartChatOpen, setIsStartChatOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("");
+  const [messageText, setMessageText] = useState("");
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [guestUserId, setGuestUserId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Mock data - replace with real data from your backend
-  const [chats] = useState<Chat[]>([
+  // Mock chat data for the list
+  const [chats, setChats] = useState<Chat[]>([
     {
-      id: "1",
+      id: "support",
       name: "Support Team",
       lastMessage: "How can we help you today?",
       timestamp: new Date(),
-      unread: 2,
+      unread: 0,
     },
   ]);
 
-  const [messages] = useState<Message[]>([
-    {
-      id: "1",
-      text: "Hello! How can we help you today?",
-      sender: "admin",
-      timestamp: new Date(),
-    },
-  ]);
+  // Config
+  const DATABASE_ID = process.env.NEXT_PUBLIC_DATABASEID || "";
+  const USERS_COLLECTION_ID = process.env.NEXT_PUBLIC_COLLECTID || "";
+  const moderatorId = "mod123"; // Replace with a real moderator ID or fetch from backend
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+  
+  // Set up real-time listener for new messages
+  useEffect(() => {
+    if (!guestUserId) return;
+    
+    const unsubscribe = subscribeToMessages((newMessage) => {
+      // Check if the message is for this guest
+      if (newMessage.senderId === guestUserId || newMessage.receiverId === guestUserId) {
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      }
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [guestUserId]);
 
-  const handleStartChat = () => {
-    if (name && phone) {
-      // Here you would typically:
-      // 1. Create a new chat session
-      // 2. Connect to your chat backend
-      // 3. Store user details
+  const handleStartChat = async () => {
+    if (!name || !phone) return;
+    
+    try {
+      setLoading(true);
+      // Create guest user
+      const guestUser = await createGuestUser(DATABASE_ID, USERS_COLLECTION_ID);
+      setGuestUserId(guestUser.$id);
+      
+      // Send initial message including contact info
+      const initialMessage = `Hello, my name is ${name}. My phone number is ${phone}. I'd like to get some information.`;
+      await sendMessage(guestUser.$id, moderatorId, initialMessage);
+      
+      // Add this message to local state
+      const newMessage = {
+        $id: Date.now().toString(),
+        text: initialMessage,
+        senderId: guestUser.$id,
+        receiverId: moderatorId,
+        timestamp: new Date().toISOString()
+      };
+      setMessages([newMessage]);
+      
+      // Close dialog, show chat
       setIsStartChatOpen(false);
-      setActiveChat("new");
+      setActiveChat("support");
+      
+      // Send welcome message
+      setTimeout(() => {
+        const welcomeMessage = {
+          $id: (Date.now() + 1).toString(),
+          text: "Thanks for reaching out! A moderator will connect with you shortly.",
+          senderId: moderatorId,
+          receiverId: guestUser.$id,
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, welcomeMessage]);
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start chat. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      // Here you would typically:
-      // 1. Send message to your backend
-      // 2. Update local state
-      setMessage("");
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !guestUserId) return;
+    
+    try {
+      await sendMessage(guestUserId, moderatorId, messageText);
+      setMessageText("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      });
     }
   };
+
+  // If user is logged in, don't render the chat UI, but still render a fragment
+  // to ensure hooks are still called in the same order
+  if (user) {
+    return <></>;
+  }
 
   return (
     <>
@@ -201,21 +284,21 @@ export default function ChatWidget() {
               <div className="space-y-4">
                 {messages.map((msg) => (
                   <div
-                    key={msg.id}
+                    key={msg.$id}
                     className={`flex ${
-                      msg.sender === "user" ? "justify-end" : "justify-start"
+                      msg.senderId === guestUserId ? "justify-end" : "justify-start"
                     }`}
                   >
                     <div
                       className={`max-w-[80%] rounded-lg p-3 ${
-                        msg.sender === "user"
+                        msg.senderId === guestUserId
                           ? "bg-orange-500 text-white"
                           : "bg-gray-100"
                       }`}
                     >
                       <p>{msg.text}</p>
                       <p className="text-xs mt-1 opacity-70">
-                        {msg.timestamp.toLocaleTimeString([], {
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -223,6 +306,7 @@ export default function ChatWidget() {
                     </div>
                   </div>
                 ))}
+                <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
@@ -230,8 +314,8 @@ export default function ChatWidget() {
               <div className="flex gap-2">
                 <Input
                   placeholder="Type your message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -242,7 +326,7 @@ export default function ChatWidget() {
                 <Button
                   size="icon"
                   onClick={handleSendMessage}
-                  disabled={!message.trim()}
+                  disabled={!messageText.trim() || loading}
                 >
                   <Send className="h-4 w-4" />
                 </Button>

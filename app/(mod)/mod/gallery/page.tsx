@@ -1,27 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/components/ui/dialog";
-import Image from "next/image";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { client_databases, client_storage } from "@/lib/appwrite/client-config";
+import { ImageCard } from "@/components/ui/ImageCard";
+import { toast } from "sonner";
+import { deleteImage } from "@/controllers/GalleryController";
 
 interface imageInterface {
+	$id: string;
 	title: string;
 	description: string;
 	imageId: string;
@@ -31,8 +19,6 @@ export default function GalleryPage() {
 	const [images, setImages] = useState<imageInterface[]>([]);
 	const router = useRouter();
 	const [selectedImage, setSelectedImage] = useState(null);
-	const { user } = useAuthStore();
-
 	useEffect(() => {
 		async function fetchImages() {
 			try {
@@ -41,7 +27,13 @@ export default function GalleryPage() {
 					process.env.NEXT_PUBLIC_GALLERY_ID as string,
 				);
 				console.log("running....");
-				setImages(response.documents);
+				const fetchedImages = response.documents.map((doc) => ({
+                    $id: doc.$id,
+                    title: doc.title,
+                    description: doc.description,
+                    imageId: doc.imageId,
+                }));
+				setImages(fetchedImages);
 			} catch (error) {
 				console.error("Error fetching images:", error);
 			}
@@ -50,7 +42,7 @@ export default function GalleryPage() {
 	}, []);
 
 	return (
-		<div className="p-4">
+<div className="p-4">
 			<div className="flex justify-end mb-4">
 				<Button onClick={() => router.push("/mod/gallery/create")}>
 					Upload Image
@@ -58,75 +50,40 @@ export default function GalleryPage() {
 			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 				{images.map((image: imageInterface) => (
-					<Card
+					<ImageCard
 						key={image.$id}
-						className="cursor-pointer"
-						onClick={() => setSelectedImage(image)}
-					>
-						<CardHeader>
-							<CardTitle>{image.title}</CardTitle>
-							<CardDescription>{image.description}</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<Image
-								src={`${
-									client_storage.getFileView(
-										process.env.NEXT_PUBLIC_BUCKETID as string,
-										image.imageId,
-									).href
-								}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`}
-								alt={image.title}
-								width={500}
-								height={300}
-								className="w-full h-auto object-cover"
-							/>
-						</CardContent>
-					</Card>
+						imageId={image.$id}
+						title={image.title}
+						description={image.description}
+						imageUrl={`${client_storage
+							.getFileView(
+								process.env.NEXT_PUBLIC_BUCKETID as string,
+								image.imageId
+							)
+							.href}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`}
+						onUpdate={(imageId) => router.push(`/mod/gallery/update/${imageId}`)}
+						onDelete={async (imageId) => {
+							// Implement delete functionality here
+							try {
+								await deleteImage(imageId);
+								setImages(images.filter((img) => img.$id !== imageId));
+								toast.success("Image deleted successfully!");
+							} catch (error) {
+								console.error("Error deleting image:", error);
+								toast.error("Failed to delete image.");
+							}
+						}}
+						isMod={true}
+                        imageUrls={images.map(img => `${client_storage
+							.getFileView(
+								process.env.NEXT_PUBLIC_BUCKETID as string,
+								img.imageId
+							)
+							.href}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`)}
+                        cacheBuster={Date.now().toString()}
+					/>
 				))}
 			</div>
-			<Dialog
-				open={!!selectedImage}
-				onOpenChange={() => setSelectedImage(null)}
-			>
-				<DialogContent className="sm:max-w-[425px]">
-					{selectedImage && (
-						<>
-							<DialogHeader>
-								<DialogTitle>{selectedImage.title}</DialogTitle>
-								<DialogDescription>
-									{selectedImage.description}
-								</DialogDescription>
-							</DialogHeader>
-							<Image
-								src={`${
-									client_storage.getFileView(
-										process.env.NEXT_PUBLIC_BUCKETID as string,
-										selectedImage.imageId,
-									).href
-								}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`}
-								alt={selectedImage.title}
-								width={800}
-								height={600}
-								className="w-full h-auto object-contain"
-							/>
-							<div className="mt-4 flex justify-between">
-								<Button
-									onClick={() =>
-										router.push(`/mod/gallery/update/${selectedImage.$id}`)
-									}
-								>
-									Update
-								</Button>
-								<Button
-									variant="destructive"
-								>
-									Delete
-								</Button>
-							</div>
-						</>
-					)}
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
 }

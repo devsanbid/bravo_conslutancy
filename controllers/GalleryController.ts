@@ -1,10 +1,9 @@
-"use server";
-import { createAdminClient, createSessionClient } from "@/lib/server/appwrite";
-import { ID } from "@/lib/appwrite/config";
-import { Query } from "node-appwrite";
+import { ID, Query } from "appwrite";
+import { client_databases, client_storage } from "@/lib/appwrite/client-config";
+import { createAdminClient } from "@/lib/server/appwrite";
 
 const DATABASE_ID = process.env.NEXT_PUBLIC_DATABASEID || "";
-const COLLECTION_ID = process.env.GALLERY_ID || "";
+const COLLECTION_ID = process.env.NEXT_PUBLIC_GALLERY_ID || "";
 const BUCKET_ID = process.env.NEXT_PUBLIC_BUCKETID || "";
 
 export async function uploadImage(
@@ -20,11 +19,10 @@ export async function uploadImage(
 	}
 
 	try {
-		const { storage, databases } = await createAdminClient();
-		const imageUpload = await storage.createFile(BUCKET_ID, ID.unique(), file);
+		const imageUpload = await client_storage.createFile(BUCKET_ID, ID.unique(), file);
 
 		// Create document with image reference
-		return await databases.createDocument(
+		return await client_databases.createDocument(
 			DATABASE_ID,
 			COLLECTION_ID,
 			ID.unique(),
@@ -41,10 +39,11 @@ export async function uploadImage(
 	}
 }
 
+
 export async function getImages(limit = 25, offset = 0) {
 	try {
-		const { databases } = await createSessionClient();
-		const results = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+
+		const results = await client_databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
 			Query.limit(25),
 		]);
 		return results.documents;
@@ -57,8 +56,8 @@ export async function getImages(limit = 25, offset = 0) {
 //get image by id
 export async function getImageById(id: string) {
 	try {
-		const { databases } = await createSessionClient();
-		const image = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
+
+		const image = await client_databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
 		return image;
 	} catch (error) {
 		console.error("Error getting image by ID:", error);
@@ -66,64 +65,39 @@ export async function getImageById(id: string) {
 	}
 }
 
-export async function updateImage(id: string, formData: FormData) {
-	const file = formData.get("file") as File;
-	const title = formData.get("title") as string;
-	const description = formData.get("description") as string;
+export async function updateImage(id: string, data: {title: string, description: string, file?: File}) {
 	try {
-		if (file) {
-			//get the image first
-			const currentImage = await getImageById(id);
-			const { storage, databases } = await createAdminClient();
-			// Delete image from storage
-			await storage.deleteFile(BUCKET_ID, currentImage.imageId);
-			// Upload image to storage
-			const imageUpload = await storage.createFile(
-				BUCKET_ID,
-				ID.unique(),
-				file,
-			);
-			// Update document with image reference
-			return await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, {
-				title,
-				description,
-				imageId: imageUpload.$id,
-			});
-		}
-		// Update document with image reference
-		const { databases } = await createAdminClient();
-		return await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, {
-			title,
-			description,
-		});
+    let imageId = data.file ? (await client_storage.createFile(BUCKET_ID, ID.unique(), data.file)).$id : undefined;
+
+    if(imageId){
+      const currentImage = await getImageById(id);
+      await client_storage.deleteFile(BUCKET_ID, currentImage.imageId)
+    }
+    const updateData = imageId ? {
+      title: data.title,
+      description: data.description,
+      imageId: imageId
+    } : {
+      title: data.title,
+      description: data.description,
+    }
+
+		return await client_databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, updateData);
+
 	} catch (error) {
 		throw error;
 	}
 }
 
-export async function updateImageDetails(id: string, formData: FormData) {
-	const title = formData.get("title") as string;
-	const description = formData.get("description") as string;
-	try {
-		const { databases } = await createAdminClient();
-		return await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, {
-			title,
-			description,
-			updatedAt: new Date().toISOString(),
-		});
-	} catch (error) {
-		throw error;
-	}
-}
 export async function deleteImage(id: string) {
 	try {
 		const currentImage = await getImageById(id);
-		const { storage, databases } = await createAdminClient();
+
 		// Delete image from storage
-		await storage.deleteFile(BUCKET_ID, currentImage.imageId);
+		await client_storage.deleteFile(BUCKET_ID, currentImage.imageId);
 
 		// Delete document
-		await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, id);
+		await client_databases.deleteDocument(DATABASE_ID, COLLECTION_ID, id);
 	} catch (error) {
 		throw error;
 	}

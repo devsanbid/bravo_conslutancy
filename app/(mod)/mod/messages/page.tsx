@@ -1,80 +1,202 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Send } from "lucide-react";
+import { 
+  createGuestUser, 
+  getMessagesBetweenUsers, 
+  getUsersWithRecentMessages, 
+  sendMessage, 
+  subscribeToMessages 
+} from "@/controllers/chatController";
+import { useAuthStore } from "@/lib/stores/authStore";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
-  id: string;
+  $id: string;
+  messageId: string;
   text: string;
-  sender: "user" | "mod";
-  timestamp: Date;
-  userId: number;
+  senderId: string;
+  receiverId: string;
+  timestamp: string;
 }
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   avatar: string;
   lastMessage: string;
+  lastMessageTime: string | null;
   unread: number;
   online: boolean;
+  type: "student" | "guest";
 }
 
 export default function MessagesManagement() {
-  const [selectedUser, setSelectedUser] = useState<number | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuthStore();
+  const moderatorId = user?.$id;
+  const { toast } = useToast();
+  
+  const DATABASE_ID = process.env.NEXT_PUBLIC_DATABASEID || "";
+  const USERS_COLLECTION_ID = process.env.NEXT_PUBLIC_COLLECTID || "";
+  
+  // Fetch users and their most recent messages
+  useEffect(() => {
+    async function fetchUsers() {
+      if (!moderatorId) return;
+      
+      try {
+        setLoading(true);
+        const usersWithMessages = await getUsersWithRecentMessages(moderatorId);
+        setUsers(usersWithMessages);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load chat users",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchUsers();
+  }, [moderatorId, toast]);
+  
+  // Set up real-time listener for new messages
+  useEffect(() => {
+    if (!moderatorId) return;
+    
+    const unsubscribe = subscribeToMessages((newMessage) => {
+      // Update messages if this is for the currently selected conversation
+      if (selectedUser && 
+         (newMessage.senderId === selectedUser || newMessage.receiverId === selectedUser) &&
+         (newMessage.senderId === moderatorId || newMessage.receiverId === moderatorId)) {
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      }
+      
+      // Update the users list with new last message
+      setUsers((prevUsers) => {
+        return prevUsers.map((user) => {
+          if (user.id === newMessage.senderId || user.id === newMessage.receiverId) {
+            return {
+              ...user,
+              lastMessage: newMessage.text,
+              lastMessageTime: newMessage.timestamp,
+              unread: user.id === newMessage.receiverId && newMessage.senderId !== moderatorId 
+                ? user.unread + 1 
+                : user.unread
+            };
+          }
+          return user;
+        });
+      });
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [moderatorId, selectedUser]);
+  
+  // Load conversation when selecting a user
+  useEffect(() => {
+    async function loadConversation() {
+      if (!selectedUser || !moderatorId) return;
+      
+      try {
+        setLoading(true);
+        const conversationHistory = await getMessagesBetweenUsers(moderatorId, selectedUser);
+        // Cast the data to our Message interface
+        setMessages(conversationHistory as unknown as Message[]);
+        
+        // Mark messages as read
+        setUsers((prevUsers) => 
+          prevUsers.map((user) => 
+            user.id === selectedUser ? { ...user, unread: 0 } : user
+          )
+        );
+      } catch (error) {
+        console.error("Error loading conversation:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load conversation",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadConversation();
+  }, [selectedUser, moderatorId, toast]);
+  
+  // Scroll to bottom of messages when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  const users: User[] = [
-    {
-      id: 1,
-      name: "John Doe",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-      lastMessage: "Hello, I need help with my application",
-      unread: 2,
-      online: true,
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jane",
-      lastMessage: "Thank you for your help!",
-      unread: 0,
-      online: false,
-    },
-  ];
-
-  const messages: Message[] = [
-    {
-      id: "1",
-      text: "Hello, I need help with my application",
-      sender: "user",
-      timestamp: new Date(),
-      userId: 1,
-    },
-    {
-      id: "2",
-      text: "Of course! How can I help you?",
-      sender: "mod",
-      timestamp: new Date(),
-      userId: 1,
-    },
-  ];
+  const handleStartConversation = async () => {
+    try {
+      const guestUser = await createGuestUser(DATABASE_ID, USERS_COLLECTION_ID);
+      const newUser: User = {
+        id: guestUser.$id,
+        name: guestUser.name,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${guestUser.name}`,
+        lastMessage: "",
+        lastMessageTime: null,
+        unread: 0,
+        online: false,
+        type: "guest",
+      };
+      
+      setUsers((prevUsers) => [newUser, ...prevUsers] as User[]);
+      setSelectedUser(guestUser.$id);
+      
+      toast({
+        title: "Success",
+        description: "Created a new guest conversation",
+      });
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create guest conversation",
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredUsers = users.filter((user) =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedUser) return;
-    // Here you would typically send the message to your backend
-    console.log("Sending message:", messageText, "to user:", selectedUser);
-    setMessageText("");
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !selectedUser || !moderatorId) return;
+    
+    try {
+      await sendMessage(moderatorId, selectedUser, messageText);
+      setMessageText("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -118,7 +240,7 @@ export default function MessagesManagement() {
                   </div>
                   <div className="flex-1 text-left">
                     <div className="flex justify-between items-center">
-                      <p className="font-medium">{user.name}</p>
+                      <p className="font-medium">{user.name} {user.type === "student" ? "(Verified)" : "(Guest)"}</p>
                       {user.unread > 0 && (
                         <span className="bg-brand-orange text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                           {user.unread}
@@ -169,26 +291,29 @@ export default function MessagesManagement() {
                 <ScrollArea className="h-[calc(100vh-20rem)]">
                   <div className="space-y-4">
                     {messages
-                      .filter((m) => m.userId === selectedUser)
+                      .filter(message => 
+                        (message.senderId === selectedUser && message.receiverId === moderatorId) || 
+                        (message.senderId === moderatorId && message.receiverId === selectedUser)
+                      )
                       .map((message) => (
                         <div
-                          key={message.id}
+                          key={message.$id}
                           className={`flex ${
-                            message.sender === "mod"
+                            message.senderId === moderatorId
                               ? "justify-end"
                               : "justify-start"
                           }`}
                         >
                           <div
                             className={`max-w-[80%] rounded-lg p-3 ${
-                              message.sender === "mod"
+                              message.senderId === moderatorId
                                 ? "bg-brand-orange text-white"
                                 : "bg-gray-100"
                             }`}
                           >
                             <p>{message.text}</p>
                             <p className="text-xs mt-1 opacity-70">
-                              {message.timestamp.toLocaleTimeString([], {
+                              {new Date(message.timestamp).toLocaleTimeString([], {
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}
@@ -196,6 +321,7 @@ export default function MessagesManagement() {
                           </div>
                         </div>
                       ))}
+                    <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
               </CardContent>

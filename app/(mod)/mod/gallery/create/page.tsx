@@ -55,45 +55,44 @@ export default function GalleryCreate() {
 	});
 
 	async function onSubmit(values: z.infer<typeof formSchema>) {
-		try {
-			setIsLoading(true);
+    if (!values.file) {
+      toast.error("Please select an image to upload.");
+      return;
+    }
 
-			console.log("File object:", values.file);
-			console.log("File name:", values.file.name);
-			console.log("File type:", values.file.type);
-			console.log("File size:", values.file.size);
+    try {
+      setIsLoading(true);
+      const imageUpload = await client_storage.createFile(
+        process.env.NEXT_PUBLIC_BUCKETID as string,
+        ID.unique(),
+        values.file,
+        {
+          'Cache-Control': 'no-cache',
+        }
+      );
 
-			const imageUpload = await client_storage.createFile(
-				process.env.NEXT_PUBLIC_BUCKETID as string,
-				ID.unique(),
-				values.file,
-			);
-
-            console.log("gallery id", process.env.GALLERY_ID)
-
-			// Create document with image reference
-			await client_databases.createDocument(
-				process.env.NEXT_PUBLIC_DATABASEID as string,
-				process.env.NEXT_PUBLIC_GALLERY_ID as string,
-				ID.unique(),
-				{
-					title: values.title,
-					description: values.description,
-					imageId: imageUpload.$id,
-					createdAt: new Date().toISOString(),
-					userId: "sanbid",
-				},
-			);
-
-			toast.success("Image uploaded successfully!");
-			router.push("/mod/gallery");
-		} catch (error) {
-			toast.error("Failed to upload image.");
-			console.error("Upload error:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	}
+      // Create document with image reference
+      await client_databases.createDocument(
+        process.env.NEXT_PUBLIC_DATABASEID as string,
+        process.env.NEXT_PUBLIC_GALLERY_ID as string,
+        ID.unique(),
+        {
+          title: values.title,
+          description: values.description,
+          imageId: imageUpload.$id,
+          createdAt: new Date().toISOString(),
+          userId: "sanbid",
+        }
+      );
+      toast.success("Image uploaded successfully!");
+      router.push("/mod/gallery");
+    } catch (error) {
+      toast.error("Failed to upload image.");
+      console.error("Upload error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
 	return (
 		<div className="min-h-screen bg-gradient-to-b from-brand-purple/5 to-brand-orange/5 py-6 sm:py-8 md:py-12 px-4 sm:px-6">

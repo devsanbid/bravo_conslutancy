@@ -27,21 +27,19 @@
      fetchImage();
    }, [imageId]);
 
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault();
-     const formData = new FormData();
-     if (file) {
-       formData.append('file', file);
-     }
-     formData.append('title', title);
-     formData.append('description', description);
-     try {
-       await updateImage(imageId, formData);
-       router.push('/gallery');
-     } catch (error) {
-       console.error('Error updating image:', error);
-     }
-   };
+const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateImage(imageId, {
+        title,
+        description,
+        file: file ?? undefined,
+      });
+      router.push("/mod/gallery");
+    } catch (error) {
+      console.error("Error updating image:", error);
+    }
+  };
 
    return (
      <div className="p-4">

@@ -137,6 +137,14 @@
                     "array": false,
                     "size": 20,
                     "default": "student"
+                },
+                {
+                    "key": "type",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 100,
+                    "default": "student"
                 }
             ],
             "indexes": []
@@ -671,7 +679,7 @@
                 {
                     "key": "content",
                     "type": "string",
-                    "required": true,
+                    "required": false,
                     "array": false,
                     "size": 1200,
                     "default": null
@@ -746,6 +754,128 @@
                     "required": false,
                     "array": true,
                     "size": 500,
+                    "default": null
+                },
+                {
+                    "key": "published",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "id",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 100,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "67c6ad26000b66f38442",
+            "$permissions": [
+                "create(\"any\")",
+                "read(\"any\")",
+                "update(\"any\")",
+                "delete(\"any\")"
+            ],
+            "databaseId": "67bd6d8d000a536a4c26",
+            "name": "gallery",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "title",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                },
+                {
+                    "key": "description",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 500,
+                    "default": null
+                },
+                {
+                    "key": "imageId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 400,
+                    "default": null
+                },
+                {
+                    "key": "createdAt",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "67c84a1500325a2d1875",
+            "$permissions": [],
+            "databaseId": "67bd6d8d000a536a4c26",
+            "name": "Messages",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "messageId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 149,
+                    "default": null
+                },
+                {
+                    "key": "senderId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 100,
+                    "default": "150"
+                },
+                {
+                    "key": "receiverId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 100,
+                    "default": null
+                },
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 830,
+                    "default": null
+                },
+                {
+                    "key": "timestamp",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 100,
                     "default": null
                 }
             ],
