@@ -16,73 +16,118 @@ interface MessageData {
 
 export async function createGuestUser(DATABASE_ID: string, USERS_COLLECTION_ID: string) {
   try {
-    const { account, databases } = await createAdminClient();
+    console.log("Creating guest user with DATABASE_ID:", DATABASE_ID, "USERS_COLLECTION_ID:", USERS_COLLECTION_ID);
+    
+    const adminClient = await createAdminClient();
+    if (!adminClient) {
+      throw new Error("Failed to initialize admin client");
+    }
+    
+    const { account, databases } = adminClient;
+    
+    // Generate unique values
     const userId = ID.unique();
-    const username = `Guest${Math.floor(Math.random() * 1000)}`;
-    const password = Math.random().toString(36).slice(-8); // Generate a random password
+    const username = `Guest${Math.floor(Math.random() * 10000)}`;
+    const password = Math.random().toString(36).slice(-10); // Generate a random password
+    const email = `${username.toLowerCase()}@guest.example.com`;
+    
+    console.log("Attempting to create guest user with ID:", userId);
 
-    // Create user in Appwrite
-    const user = await account.create(
-      userId,
-      `${username}@example.com`, // Dummy email
-      password,
-      username
-    );
+    try {
+      // Create user in Appwrite
+      const user = await account.create(
+        userId,
+        email,
+        password,
+        username
+      );
+      
+      console.log("Guest user created successfully:", user.$id);
 
-    // Create user document in Users collection
-    await databases.createDocument(
-      DATABASE_ID,
-      USERS_COLLECTION_ID,
-      ID.unique(),
-      {
-        userId: user.$id,
-        firstName: username,
-        lastName: "",
-        email: `${username}@example.com`,
-        gender: "other",
-        dateOfBirth: new Date().toISOString(),
-        phone: "",
-        service: "",
-        role: "student",
-        type: "guest",
+      // Create user document in Users collection
+      try {
+        const userDoc = await databases.createDocument(
+          DATABASE_ID,
+          USERS_COLLECTION_ID,
+          ID.unique(),
+          {
+            userId: user.$id,
+            firstName: username,
+            lastName: "",
+            email: email,
+            gender: "other",
+            dateOfBirth: new Date().toISOString(),
+            phone: "",
+            service: "",
+            role: "student",
+            type: "guest",
+          }
+        );
+        
+        console.log("Guest user document created:", userDoc.$id);
+      } catch (docError) {
+        console.error("Error creating user document:", docError);
+        // Continue anyway as we at least have the user account
       }
-    );
 
-    return user;
-  } catch (error) {
-    console.error("Error creating guest user:", error);
-    throw error;
+      return user;
+    } catch (userError) {
+      console.error("Error creating guest user account:", userError);
+      throw userError;
+    }
+  } catch (error: any) {
+    console.error("Error in createGuestUser:", error);
+    throw new Error(`Failed to create guest user: ${error?.message || "Unknown error"}`);
   }
 }
 
 export async function sendMessage(senderId: string, receiverId: string, text: string) {
   try {
-    const { databases } = await createAdminClient();
+    console.log("Sending message from", senderId, "to", receiverId);
+    
+    const adminClient = await createAdminClient();
+    if (!adminClient) {
+      throw new Error("Failed to initialize admin client");
+    }
+    
+    const { databases } = adminClient;
+    
+    const messageId = ID.unique();
+    const documentId = ID.unique();
     
     const messageData: MessageData = {
-      messageId: ID.unique(),
+      messageId,
       senderId,
       receiverId,
       text,
       timestamp: new Date().toISOString(),
     };
 
-    const result = await databases.createDocument(
-      DATABASE_ID,
-      MESSAGE_COLLECTION_ID,
-      ID.unique(),
-      messageData
-    );
-
-    return result;
-  } catch (error) {
-    console.error("Error sending message:", error);
-    throw error;
+    console.log("Creating message document with ID:", documentId);
+    
+    try {
+      const result = await databases.createDocument(
+        DATABASE_ID,
+        MESSAGE_COLLECTION_ID,
+        documentId,
+        messageData
+      );
+      
+      console.log("Message sent successfully:", result.$id);
+      return result;
+    } catch (dbError) {
+      console.error("Database error when sending message:", dbError);
+      throw dbError;
+    }
+  } catch (error: any) {
+    console.error("Error in sendMessage:", error);
+    throw new Error(`Failed to send message: ${error?.message || "Unknown error"}`);
   }
 }
 
 export async function getMessagesBetweenUsers(userId1: string, userId2: string) {
   try {
+    console.log(`Fetching messages between users ${userId1} and ${userId2}`);
     const { databases } = await createAdminClient();
     
     // Query messages where either:
@@ -110,12 +155,32 @@ export async function getMessagesBetweenUsers(userId1: string, userId2: string) 
       ]
     );
 
+    // Convert Appwrite documents to plain serializable objects
+    const sentMessagesPlain = sentMessages.documents.map(doc => ({
+      $id: doc.$id,
+      messageId: doc.messageId,
+      senderId: doc.senderId,
+      receiverId: doc.receiverId,
+      text: doc.text,
+      timestamp: doc.timestamp
+    }));
+    
+    const receivedMessagesPlain = receivedMessages.documents.map(doc => ({
+      $id: doc.$id,
+      messageId: doc.messageId,
+      senderId: doc.senderId,
+      receiverId: doc.receiverId,
+      text: doc.text,
+      timestamp: doc.timestamp
+    }));
+
     // Combine and sort messages
-    const allMessages = [...sentMessages.documents, ...receivedMessages.documents];
+    const allMessages = [...sentMessagesPlain, ...receivedMessagesPlain];
     allMessages.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
+    console.log(`Retrieved ${allMessages.length} messages`);
     return allMessages;
   } catch (error) {
     console.error("Error getting messages:", error);
@@ -131,11 +196,61 @@ export async function getAllUsers() {
       DATABASE_ID,
       USERS_COLLECTION_ID
     );
+    
+    // Convert Appwrite documents to plain serializable objects
+    const plainUsers = users.documents.map(user => ({
+      $id: user.$id,
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      type: user.type || "student",
+      role: user.role || "student",
+      // Add other needed properties
+    }));
 
-    return users.documents;
+    return plainUsers;
   } catch (error) {
     console.error("Error getting users:", error);
     throw error;
+  }
+}
+
+// Get all moderators
+export async function getAllModerators() {
+  try {
+    console.log("Fetching all moderators");
+    const { databases } = await createAdminClient();
+    
+    const users = await databases.listDocuments(
+      DATABASE_ID,
+      USERS_COLLECTION_ID
+    );
+    
+    // Filter for moderators and convert to plain objects
+    const moderators = users.documents
+      .filter(user => user.role === "admin" || user.role === "mod")
+      .map(mod => ({
+        id: mod.userId,
+        name: `${mod.firstName} ${mod.lastName}`.trim(),
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${mod.firstName}`,
+        email: mod.email,
+        role: mod.role
+      }));
+    
+    console.log(`Found ${moderators.length} moderators`);
+    return moderators;
+  } catch (error) {
+    console.error("Error getting moderators:", error);
+    return [
+      // Default moderator in case of error
+      {
+        id: "mod123",
+        name: "Support Team",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Support",
+        role: "moderator"
+      }
+    ];
   }
 }
 
@@ -178,19 +293,32 @@ export async function getUsersWithRecentMessages(moderatorId: string) {
             ]
           );
 
-          // Determine which is more recent
-          const sentMessage = sentMessages.documents.length > 0 ? sentMessages.documents[0] : null;
-          const receivedMessage = receivedMessages.documents.length > 0 ? receivedMessages.documents[0] : null;
+          // Convert to plain objects to avoid serialization issues
+          const sentMessagePlain = sentMessages.documents.length > 0 ? {
+            $id: sentMessages.documents[0].$id,
+            text: sentMessages.documents[0].text,
+            timestamp: sentMessages.documents[0].timestamp,
+            // Add other properties as needed
+          } : null;
           
+          const receivedMessagePlain = receivedMessages.documents.length > 0 ? {
+            $id: receivedMessages.documents[0].$id,
+            text: receivedMessages.documents[0].text,
+            timestamp: receivedMessages.documents[0].timestamp,
+            // Add other properties as needed
+          } : null;
+          
+          // Determine which is more recent
           let latestMessage = null;
           
-          if (sentMessage && receivedMessage) {
-            latestMessage = new Date(sentMessage.timestamp) > new Date(receivedMessage.timestamp)
-              ? sentMessage : receivedMessage;
+          if (sentMessagePlain && receivedMessagePlain) {
+            latestMessage = new Date(sentMessagePlain.timestamp) > new Date(receivedMessagePlain.timestamp)
+              ? sentMessagePlain : receivedMessagePlain;
           } else {
-            latestMessage = sentMessage || receivedMessage;
+            latestMessage = sentMessagePlain || receivedMessagePlain;
           }
           
+          // Build a plain serializable object
           return {
             id: user.userId,
             name: `${user.firstName} ${user.lastName}`.trim(),
@@ -233,13 +361,36 @@ export async function getUsersWithRecentMessages(moderatorId: string) {
 // Setup a real-time listener for new messages
 export function subscribeToMessages(callback: (message: any) => void) {
   try {
-    return client.subscribe([`databases.${DATABASE_ID}.collections.${MESSAGE_COLLECTION_ID}.documents`], (response) => {
-      if (response.events.includes(`databases.${DATABASE_ID}.collections.${MESSAGE_COLLECTION_ID}.documents.create`)) {
-        callback(response.payload);
-      }
-    });
-  } catch (error) {
-    console.error("Error subscribing to messages:", error);
-    throw error;
+    console.log("Setting up message subscription for database:", DATABASE_ID, "collection:", MESSAGE_COLLECTION_ID);
+    
+    // Ensure client is properly initialized
+    if (!client) {
+      console.error("Appwrite client not initialized");
+      throw new Error("Appwrite client not initialized");
+    }
+    
+    const subscriptionChannel = `databases.${DATABASE_ID}.collections.${MESSAGE_COLLECTION_ID}.documents`;
+    console.log("Subscribing to channel:", subscriptionChannel);
+    
+    // Add more specific error handling
+    try {
+      const unsubscribe = client.subscribe([subscriptionChannel], (response: any) => {
+        // Check if this is a document creation event
+        if (response.events && response.events.includes(`databases.${DATABASE_ID}.collections.${MESSAGE_COLLECTION_ID}.documents.create`)) {
+          console.log("New message received:", response.payload?.$id);
+          callback(response.payload);
+        }
+      });
+      
+      console.log("Subscription set up successfully");
+      return unsubscribe;
+    } catch (subError) {
+      console.error("Subscription error:", subError);
+      throw subError;
+    }
+  } catch (error: any) {
+    console.error("Error in subscribeToMessages:", error);
+    // Return a dummy unsubscribe function to prevent errors
+    return () => console.log("Dummy unsubscribe called");
   }
 }

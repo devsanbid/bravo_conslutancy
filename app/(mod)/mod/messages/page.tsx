@@ -55,11 +55,14 @@ export default function MessagesManagement() {
   // Fetch users and their most recent messages
   useEffect(() => {
     async function fetchUsers() {
-      if (!moderatorId) return;
+      // Use a consistent moderator ID across the app
+      const modId = moderatorId || "mod123";
       
       try {
         setLoading(true);
-        const usersWithMessages = await getUsersWithRecentMessages(moderatorId);
+        console.log("Fetching users with recent messages for moderator:", modId);
+        const usersWithMessages = await getUsersWithRecentMessages(modId);
+        console.log("Retrieved", usersWithMessages.length, "users with messages");
         setUsers(usersWithMessages);
       } catch (error) {
         console.error("Error fetching users:", error);
@@ -78,13 +81,17 @@ export default function MessagesManagement() {
   
   // Set up real-time listener for new messages
   useEffect(() => {
-    if (!moderatorId) return;
+    // Use a consistent moderator ID across the app
+    const modId = moderatorId || "mod123";
+    
+    console.log("Setting up real-time message subscription for moderator:", modId);
     
     const unsubscribe = subscribeToMessages((newMessage) => {
       // Update messages if this is for the currently selected conversation
       if (selectedUser && 
          (newMessage.senderId === selectedUser || newMessage.receiverId === selectedUser) &&
-         (newMessage.senderId === moderatorId || newMessage.receiverId === moderatorId)) {
+         (newMessage.senderId === modId || newMessage.receiverId === modId)) {
+        console.log("New message for current conversation received");
         setMessages((prevMessages) => [...prevMessages, newMessage]);
       }
       
@@ -114,13 +121,18 @@ export default function MessagesManagement() {
   // Load conversation when selecting a user
   useEffect(() => {
     async function loadConversation() {
-      if (!selectedUser || !moderatorId) return;
+      if (!selectedUser) return;
+      
+      // Use a consistent moderator ID across the app
+      const modId = moderatorId || "mod123";
       
       try {
         setLoading(true);
-        const conversationHistory = await getMessagesBetweenUsers(moderatorId, selectedUser);
-        // Cast the data to our Message interface
-        setMessages(conversationHistory as unknown as Message[]);
+        console.log("Loading conversation between moderator", modId, "and user", selectedUser);
+        const conversationHistory = await getMessagesBetweenUsers(modId, selectedUser);
+        console.log("Retrieved", conversationHistory.length, "messages");
+        // No need for casting as the controller now returns plain objects
+        setMessages(conversationHistory);
         
         // Mark messages as read
         setUsers((prevUsers) => 
@@ -184,10 +196,14 @@ export default function MessagesManagement() {
   );
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedUser || !moderatorId) return;
+    if (!messageText.trim() || !selectedUser) return;
+    
+    // Use a consistent moderator ID across the app
+    const modId = moderatorId || "mod123";
     
     try {
-      await sendMessage(moderatorId, selectedUser, messageText);
+      console.log("Sending message from moderator", modId, "to user", selectedUser);
+      await sendMessage(modId, selectedUser, messageText);
       setMessageText("");
     } catch (error) {
       console.error("Error sending message:", error);

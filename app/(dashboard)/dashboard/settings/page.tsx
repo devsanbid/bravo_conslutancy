@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -15,6 +15,7 @@ import {
   Share2,
   Shield,
   KeyRound,
+  MessageCircle,
   ChevronRight,
 } from "lucide-react";
 
@@ -39,6 +40,15 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuthStore } from "@/lib/stores/authStore";
+import { useToast } from "@/hooks/use-toast";
+import {
+  getUserSettings,
+  updateUserProfile,
+  updateUserPassword,
+  updateUserSettings,
+  toggleChatNotifications
+} from "@/controllers/SettingsController";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -57,6 +67,11 @@ const passwordFormSchema = z.object({
 });
 
 export default function SettingsPage() {
+  const { toast } = useToast();
+  const { user } = useAuthStore();
+  const userId = user?.$id;
+
+  // Settings state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [testReminders, setTestReminders] = useState(true);
   const [studyReminders, setStudyReminders] = useState(false);
@@ -64,6 +79,9 @@ export default function SettingsPage() {
   const [profileVisibility, setProfileVisibility] = useState(true);
   const [progressSharing, setProgressSharing] = useState(false);
   const [twoFactor, setTwoFactor] = useState(false);
+  const [chatNotifications, setChatNotifications] = useState(true);
+  const [language, setLanguage] = useState("en");
+  const [loading, setLoading] = useState(true);
 
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
@@ -84,12 +102,267 @@ export default function SettingsPage() {
     },
   });
 
-  function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
-    console.log(values);
+  // Load user settings
+  useEffect(() => {
+    async function loadSettings() {
+      if (!userId) return;
+      
+      try {
+        setLoading(true);
+        const settings = await getUserSettings(userId);
+        
+        if (settings) {
+          // Update settings state
+          setEmailNotifications(settings.emailNotifications ?? true);
+          setTestReminders(settings.testReminders ?? true);
+          setStudyReminders(settings.studyReminders ?? false);
+          setDarkMode(settings.darkMode ?? false);
+          setProfileVisibility(settings.profileVisibility ?? true);
+          setProgressSharing(settings.progressSharing ?? false);
+          setTwoFactor(settings.twoFactor ?? false);
+          setChatNotifications(settings.chatNotifications ?? true);
+          setLanguage(settings.language ?? "en");
+        }
+        
+        // Load user profile info for the profile form
+        if (user?.profile) {
+          profileForm.setValue("firstName", user.profile.firstName || "");
+          profileForm.setValue("lastName", user.profile.lastName || "");
+          profileForm.setValue("email", user.profile.email || "");
+          profileForm.setValue("phone", user.profile.phone || "");
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load settings",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadSettings();
+  }, [userId, toast, profileForm, user]);
+
+  // Form submit handlers
+  async function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
+    if (!userId) return;
+    
+    try {
+      const result = await updateUserProfile(userId, values);
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update profile",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting profile:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
   }
 
-  function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
-    console.log(values);
+  async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
+    if (!userId) return;
+    
+    try {
+      const result = await updateUserPassword(userId, {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Password updated successfully",
+        });
+        passwordForm.reset();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting password change:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  }
+
+  // Toggle handlers
+  async function handleEmailNotificationsChange(checked: boolean) {
+    if (!userId) return;
+    
+    setEmailNotifications(checked);
+    try {
+      await updateUserSettings(userId, { emailNotifications: checked });
+    } catch (error) {
+      console.error("Error updating email notifications:", error);
+      setEmailNotifications(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleTestRemindersChange(checked: boolean) {
+    if (!userId) return;
+    
+    setTestReminders(checked);
+    try {
+      await updateUserSettings(userId, { testReminders: checked });
+    } catch (error) {
+      console.error("Error updating test reminders:", error);
+      setTestReminders(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleStudyRemindersChange(checked: boolean) {
+    if (!userId) return;
+    
+    setStudyReminders(checked);
+    try {
+      await updateUserSettings(userId, { studyReminders: checked });
+    } catch (error) {
+      console.error("Error updating study reminders:", error);
+      setStudyReminders(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleLanguageChange(value: string) {
+    if (!userId) return;
+    
+    setLanguage(value);
+    try {
+      await updateUserSettings(userId, { language: value });
+    } catch (error) {
+      console.error("Error updating language:", error);
+      setLanguage(language); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update language preference",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDarkModeChange(checked: boolean) {
+    if (!userId) return;
+    
+    setDarkMode(checked);
+    try {
+      await updateUserSettings(userId, { darkMode: checked });
+    } catch (error) {
+      console.error("Error updating dark mode:", error);
+      setDarkMode(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update appearance settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleProfileVisibilityChange(checked: boolean) {
+    if (!userId) return;
+    
+    setProfileVisibility(checked);
+    try {
+      await updateUserSettings(userId, { profileVisibility: checked });
+    } catch (error) {
+      console.error("Error updating profile visibility:", error);
+      setProfileVisibility(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update privacy settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleProgressSharingChange(checked: boolean) {
+    if (!userId) return;
+    
+    setProgressSharing(checked);
+    try {
+      await updateUserSettings(userId, { progressSharing: checked });
+    } catch (error) {
+      console.error("Error updating progress sharing:", error);
+      setProgressSharing(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update privacy settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleTwoFactorChange(checked: boolean) {
+    if (!userId) return;
+    
+    setTwoFactor(checked);
+    try {
+      await updateUserSettings(userId, { twoFactor: checked });
+    } catch (error) {
+      console.error("Error updating two-factor:", error);
+      setTwoFactor(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update security settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleChatNotificationsChange(checked: boolean) {
+    if (!userId) return;
+    
+    setChatNotifications(checked);
+    try {
+      await toggleChatNotifications(userId, checked);
+    } catch (error) {
+      console.error("Error updating chat notifications:", error);
+      setChatNotifications(!checked); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update chat notification settings",
+        variant: "destructive",
+      });
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6">Loading settings...</div>;
   }
 
   return (
@@ -269,7 +542,21 @@ export default function SettingsPage() {
               </div>
               <Switch
                 checked={studyReminders}
-                onCheckedChange={setStudyReminders}
+                onCheckedChange={handleStudyRemindersChange}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">Chat Notifications</span>
+                </div>
+                <p className="text-sm text-gray-500">Get notified about new messages</p>
+              </div>
+              <Switch
+                checked={chatNotifications}
+                onCheckedChange={handleChatNotificationsChange}
               />
             </div>
           </CardContent>
@@ -288,7 +575,10 @@ export default function SettingsPage() {
                   <span className="font-medium">Language</span>
                 </div>
               </div>
-              <Select defaultValue="en">
+              <Select 
+                defaultValue={language}
+                onValueChange={handleLanguageChange}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select language" />
                 </SelectTrigger>

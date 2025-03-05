@@ -6,14 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send } from "lucide-react";
+import { Send, UserPlus, Users } from "lucide-react";
 import { 
   getMessagesBetweenUsers, 
   sendMessage, 
-  subscribeToMessages 
+  subscribeToMessages,
+  getAllModerators
 } from "@/controllers/chatController";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Message {
   $id: string;
@@ -24,10 +32,20 @@ interface Message {
   timestamp: string;
 }
 
+interface Moderator {
+  id: string;
+  name: string;
+  avatar: string;
+  email?: string;
+  role?: string;
+}
+
 export default function StudentMessagesPage() {
   const [messageText, setMessageText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [moderators, setModerators] = useState<Moderator[]>([]);
+  const [selectedModeratorId, setSelectedModeratorId] = useState<string>("");
   const [moderator, setModerator] = useState({
     id: "", // Will be updated with a real moderator ID
     name: "Support Team",
@@ -35,26 +53,77 @@ export default function StudentMessagesPage() {
     online: false
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuthStore();
+  const { user, checkUser } = useAuthStore();
   const studentId = user?.$id;
   const { toast } = useToast();
   
-  // Load conversation with the moderator
+  // Load available moderators
+  useEffect(() => {
+    async function loadModerators() {
+      try {
+        console.log("Loading available moderators");
+        const availableModerators = await getAllModerators();
+        console.log("Retrieved", availableModerators.length, "moderators");
+        setModerators(availableModerators);
+        
+        // If there's at least one moderator, select the first one
+        if (availableModerators.length > 0 && !selectedModeratorId) {
+          setSelectedModeratorId(availableModerators[0].id);
+          setModerator({
+            id: availableModerators[0].id,
+            name: availableModerators[0].name,
+            avatar: availableModerators[0].avatar,
+            online: false
+          });
+        }
+      } catch (error) {
+        console.error("Error loading moderators:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load available moderators",
+          variant: "destructive",
+        });
+        
+        // Set default moderator in case of error
+        setSelectedModeratorId("mod123");
+        setModerator({
+          id: "mod123",
+          name: "Support Team",
+          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Support",
+          online: false
+        });
+      }
+    }
+    
+    loadModerators();
+  }, [toast]);
+  
+  // Load conversation with the selected moderator
   useEffect(() => {
     async function loadConversation() {
-      if (!studentId) return;
+      console.log("Loading conversation, checking user...");
+      await checkUser();
+      if (!studentId || !selectedModeratorId) {
+        console.log("No student ID or moderator selected yet");
+        return;
+      }
       
       try {
         setLoading(true);
         
-        // For now, we'll hardcode a moderator ID
-        // In a real application, you might want to get this from a database
-        // or have a service that assigns moderators
-        const moderatorId = "mod123"; // Replace with a real moderator ID or fetch from backend
-        setModerator(prev => ({...prev, id: moderatorId}));
-        
-        const conversationHistory = await getMessagesBetweenUsers(studentId, moderatorId);
-        setMessages(conversationHistory as unknown as Message[]);
+        console.log("Fetching conversation history between", studentId, "and", selectedModeratorId);
+        try {
+          const conversationHistory = await getMessagesBetweenUsers(studentId, selectedModeratorId);
+          console.log("Retrieved", conversationHistory.length, "messages");
+          setMessages(conversationHistory);
+        } catch (historyError) {
+          console.error("Error fetching history:", historyError);
+          toast({
+            title: "Error",
+            description: "Failed to load message history",
+            variant: "destructive",
+          });
+        }
       } catch (error) {
         console.error("Error loading conversation:", error);
         toast({
@@ -67,17 +136,39 @@ export default function StudentMessagesPage() {
       }
     }
     
-    loadConversation();
-  }, [studentId, toast]);
+    if (selectedModeratorId) {
+      loadConversation();
+    }
+  }, [studentId, selectedModeratorId, toast, checkUser]);
+  
+  // Handle moderator selection change
+  const handleModeratorChange = (modId: string) => {
+    console.log("Changing selected moderator to:", modId);
+    setSelectedModeratorId(modId);
+    
+    // Update moderator information
+    const selectedMod = moderators.find(mod => mod.id === modId);
+    if (selectedMod) {
+      setModerator({
+        id: selectedMod.id,
+        name: selectedMod.name,
+        avatar: selectedMod.avatar,
+        online: false
+      });
+    }
+    
+    // Clear messages when changing moderator
+    setMessages([]);
+  };
   
   // Set up real-time listener for new messages
   useEffect(() => {
-    if (!studentId || !moderator.id) return;
+    if (!studentId || !selectedModeratorId) return;
     
     const unsubscribe = subscribeToMessages((newMessage) => {
       // Check if the message is from the current conversation
-      if ((newMessage.senderId === studentId && newMessage.receiverId === moderator.id) ||
-          (newMessage.senderId === moderator.id && newMessage.receiverId === studentId)) {
+      if ((newMessage.senderId === studentId && newMessage.receiverId === selectedModeratorId) ||
+          (newMessage.senderId === selectedModeratorId && newMessage.receiverId === studentId)) {
         setMessages((prevMessages) => [...prevMessages, newMessage]);
       }
     });
@@ -85,7 +176,7 @@ export default function StudentMessagesPage() {
     return () => {
       unsubscribe();
     };
-  }, [studentId, moderator.id]);
+  }, [studentId, selectedModeratorId]);
   
   // Scroll to bottom of messages when messages change
   useEffect(() => {
@@ -93,10 +184,10 @@ export default function StudentMessagesPage() {
   }, [messages]);
   
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !studentId || !moderator.id) return;
+    if (!messageText.trim() || !studentId || !selectedModeratorId) return;
     
     try {
-      await sendMessage(studentId, moderator.id, messageText);
+      await sendMessage(studentId, selectedModeratorId, messageText);
       setMessageText("");
     } catch (error) {
       console.error("Error sending message:", error);
@@ -112,16 +203,36 @@ export default function StudentMessagesPage() {
     <div className="p-6 h-[calc(100vh-6rem)]">
       <Card className="flex-1 h-full flex flex-col">
         <CardHeader className="border-b">
-          <div className="flex items-center gap-4">
-            <Avatar>
-              <AvatarImage src={moderator.avatar} />
-              <AvatarFallback>ST</AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle>{moderator.name}</CardTitle>
-              <p className="text-sm text-gray-500">
-                {moderator.online ? "Online" : "Offline"}
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar>
+                <AvatarImage src={moderator.avatar} />
+                <AvatarFallback>ST</AvatarFallback>
+              </Avatar>
+              <div>
+                <CardTitle>{moderator.name}</CardTitle>
+                <p className="text-sm text-gray-500">
+                  {moderator.online ? "Online" : "Offline"}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Select value={selectedModeratorId} onValueChange={handleModeratorChange}>
+                <SelectTrigger className="w-[220px]">
+                  <Users className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Select moderator" />
+                </SelectTrigger>
+                <SelectContent>
+                  {moderators.map((mod) => (
+                    <SelectItem key={mod.id} value={mod.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{mod.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>

@@ -68,10 +68,10 @@ export default function ChatWidget() {
     },
   ]);
 
-  // Config
+  // Config - use the same moderator ID as in other components
   const DATABASE_ID = process.env.NEXT_PUBLIC_DATABASEID || "";
   const USERS_COLLECTION_ID = process.env.NEXT_PUBLIC_COLLECTID || "";
-  const moderatorId = "mod123"; // Replace with a real moderator ID or fetch from backend
+  const moderatorId = "mod123"; // Using consistent moderator ID across the app
   
   // Scroll to bottom when messages change
   useEffect(() => {

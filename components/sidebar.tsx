@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
+  MessageCircle,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -33,37 +34,42 @@ const routes = [
   {
     label: "Mock Tests",
     icon: BookOpen,
-    href: "/mock-tests",
+    href: "/dashboard/mock-tests",
   },
   {
     label: "Study Materials",
     icon: GraduationCap,
-    href: "/study_materials",
+    href: "/dashboard/study_materials",
   },
   {
     label: "Schedule",
     icon: Calendar,
-    href: "/schedule",
+    href: "/dashboard/schedule",
   },
   {
     label: "Progress",
     icon: LineChart,
-    href: "/progress",
+    href: "/dashboard/progress",
   },
   {
     label: "Gallery",
     icon: Image,
-    href: "/gallery",
+    href: "/dashoard/gallery",
   },
   {
     label: "Blog",
     icon: BookMarked,
-    href: "/blog",
+    href: "/dashboard/blog",
+  },
+   {
+    label: "Message",
+    icon: MessageCircle,
+    href: "/dashboard/message",
   },
   {
     label: "Settings",
     icon: Settings,
-    href: "/settings",
+    href: "/dashboard/settings",
   },
 ];
 

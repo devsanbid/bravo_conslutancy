@@ -144,19 +144,59 @@ export async function resetPassword(
 
 export async function getCurrentUser() {
 	try {
-		const { account, databases } = await createSessionClient();
-		const user = await account.get();
-		if (!user) return null;
-
+		console.log("Attempting to get current user");
+		
+		// Get session client for the authenticated user
+		let sessionClient;
 		try {
-			// Try to get the user profile using the admin client to avoid permission issues
-			const { databases: adminDatabases } = await createAdminClient();
+			sessionClient = await createSessionClient();
+			if (!sessionClient) {
+				console.error("Failed to create session client");
+				return null;
+			}
+		} catch (sessionError) {
+			console.error("Error creating session client:", sessionError);
+			return null;
+		}
+		
+		// Get user data
+		let user;
+		try {
+			const { account } = sessionClient;
+			user = await account.get();
+			console.log("Retrieved user with ID:", user?.$id);
 			
-			// Get all documents and filter manually to avoid query syntax errors
-			const userProfiles = await adminDatabases.listDocuments(
-				process.env.NEXT_PUBLIC_DATABASEID || "",
-				process.env.NEXT_PUBLIC_COLLECTID || ""
-			);
+			if (!user) {
+				console.log("No user found in session");
+				return null;
+			}
+		} catch (userError) {
+			console.error("Error getting user from account:", userError);
+			return null;
+		}
+
+		// Get user profile using admin client for better permissions
+		try {
+			// Create admin client separately
+			const adminClient = await createAdminClient();
+			if (!adminClient) {
+				console.error("Failed to create admin client");
+				return { ...user, profile: null };
+			}
+			
+			const { databases: adminDatabases } = adminClient;
+			
+			// Get database and collection IDs
+			const databaseId = process.env.NEXT_PUBLIC_DATABASEID || "";
+			const collectionId = process.env.NEXT_PUBLIC_COLLECTID || "";
+			
+			if (!databaseId || !collectionId) {
+				console.error("Missing database or collection ID");
+				return { ...user, profile: null };
+			}
+			
+			// Get all user documents and filter manually
+			const userProfiles = await adminDatabases.listDocuments(databaseId, collectionId);
 			
 			// Find the profile that matches the user ID
 			const profile = userProfiles.documents.find(doc => doc.userId === user.$id);
@@ -169,8 +209,8 @@ export async function getCurrentUser() {
 			// Return the user without a profile if there's an error
 			return { ...user, profile: null };
 		}
-	} catch (error) {
-		console.error("Get current user error:", error);
+	} catch (error: any) {
+		console.error("Get current user error:", error?.message || error);
 		return null;
 	}
 }
