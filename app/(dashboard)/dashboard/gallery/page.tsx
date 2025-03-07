@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { client_databases, client_storage } from "@/lib/appwrite/client-config";
 import { ImageCard } from "@/components/ui/ImageCard";
-import { toast } from "sonner";
-import { deleteImage } from "@/controllers/GalleryController";
 
 interface imageInterface {
 	$id: string;

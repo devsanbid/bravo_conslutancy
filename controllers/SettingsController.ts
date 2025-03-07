@@ -33,7 +33,7 @@ interface SettingsData {
 export async function getUserSettings(userId: string) {
   try {
     console.log("Getting settings for user:", userId);
-    const { databases } = await createAdminClient();
+    const { databases } = await createSessionClient();
     
     // Get database and collection IDs
     const databaseId = process.env.NEXT_PUBLIC_DATABASEID || "";

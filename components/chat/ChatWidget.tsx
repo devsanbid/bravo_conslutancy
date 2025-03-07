@@ -43,8 +43,13 @@ interface Chat {
 
 export default function ChatWidget() {
   // Get authentication state first
-  const { user } = useAuthStore();
+  const { user, checkUser } = useAuthStore();
   const { toast } = useToast();
+  
+  // Initialize auth on component mount
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
   
   // Initialize all state and refs
   const [isStartChatOpen, setIsStartChatOpen] = useState(false);

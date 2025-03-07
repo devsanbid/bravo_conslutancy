@@ -79,11 +79,11 @@ export function Sidebar() {
   const [userDetails, setUserDetails] = useState<any>(null);
   const router = useRouter();
 
-  const { user, setUser, setLoading,checkUser } = useAuthStore();
+  const { user, logout, checkUser } = useAuthStore();
 
   useEffect(() => {
     checkUser();
-  }, []);
+  }, [checkUser]);
 
   useEffect(() => {
     if (user && user.profile) {
@@ -96,16 +96,12 @@ export function Sidebar() {
 
   const handleSignOut = async () => {
     try {
-      setLoading(true);
       await logout();
-      setUser(null);
       router.push('/login');
       toast.success('Logged out successfully');
     } catch (error) {
       console.error("Logout error:", error);
       toast.error('Error logging out');
-    } finally {
-      setLoading(false);
     }
   };
 

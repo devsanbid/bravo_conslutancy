@@ -57,6 +57,11 @@ export default function StudentMessagesPage() {
   const studentId = user?.$id;
   const { toast } = useToast();
   
+  // Initialize auth on component mount
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
+  
   // Load available moderators
   useEffect(() => {
     async function loadModerators() {
@@ -101,8 +106,6 @@ export default function StudentMessagesPage() {
   // Load conversation with the selected moderator
   useEffect(() => {
     async function loadConversation() {
-      console.log("Loading conversation, checking user...");
-      await checkUser();
       if (!studentId || !selectedModeratorId) {
         console.log("No student ID or moderator selected yet");
         return;
@@ -136,10 +139,10 @@ export default function StudentMessagesPage() {
       }
     }
     
-    if (selectedModeratorId) {
+    if (selectedModeratorId && studentId) {
       loadConversation();
     }
-  }, [studentId, selectedModeratorId, toast, checkUser]);
+  }, [studentId, selectedModeratorId, toast]);
   
   // Handle moderator selection change
   const handleModeratorChange = (modId: string) => {

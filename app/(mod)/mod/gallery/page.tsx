@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/stores/authStore";
 import { client_databases, client_storage } from "@/lib/appwrite/client-config";
 import { ImageCard } from "@/components/ui/ImageCard";
 import { toast } from "sonner";
@@ -28,11 +27,11 @@ export default function GalleryPage() {
 				);
 				console.log("running....");
 				const fetchedImages = response.documents.map((doc) => ({
-                    $id: doc.$id,
-                    title: doc.title,
-                    description: doc.description,
-                    imageId: doc.imageId,
-                }));
+					$id: doc.$id,
+					title: doc.title,
+					description: doc.description,
+					imageId: doc.imageId,
+				}));
 				setImages(fetchedImages);
 			} catch (error) {
 				console.error("Error fetching images:", error);
@@ -42,7 +41,7 @@ export default function GalleryPage() {
 	}, []);
 
 	return (
-<div className="p-4">
+		<div className="p-4">
 			<div className="flex justify-end mb-4">
 				<Button onClick={() => router.push("/mod/gallery/create")}>
 					Upload Image
@@ -55,13 +54,15 @@ export default function GalleryPage() {
 						imageId={image.$id}
 						title={image.title}
 						description={image.description}
-						imageUrl={`${client_storage
-							.getFileView(
+						imageUrl={`${
+							client_storage.getFileView(
 								process.env.NEXT_PUBLIC_BUCKETID as string,
-								image.imageId
-							)
-							.href}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`}
-						onUpdate={(imageId) => router.push(`/mod/gallery/update/${imageId}`)}
+								image.imageId,
+							).href
+						}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`}
+						onUpdate={(imageId) =>
+							router.push(`/mod/gallery/update/${imageId}`)
+						}
 						onDelete={async (imageId) => {
 							// Implement delete functionality here
 							try {
@@ -74,13 +75,16 @@ export default function GalleryPage() {
 							}
 						}}
 						isMod={true}
-                        imageUrls={images.map(img => `${client_storage
-							.getFileView(
-								process.env.NEXT_PUBLIC_BUCKETID as string,
-								img.imageId
-							)
-							.href}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`)}
-                        cacheBuster={Date.now().toString()}
+						imageUrls={images.map(
+							(img) =>
+								`${
+									client_storage.getFileView(
+										process.env.NEXT_PUBLIC_BUCKETID as string,
+										img.imageId,
+									).href
+								}&project=${process.env.NEXT_PUBLIC_PROJECTID}&mode=admin`,
+						)}
+						cacheBuster={Date.now().toString()}
 					/>
 				))}
 			</div>

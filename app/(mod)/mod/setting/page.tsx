@@ -38,7 +38,7 @@ import {
   updateUserSettings,
   updateModAutoReply,
   toggleChatNotifications
-} from "@/controllers/SettingsController";
+}from "@/controllers/SettingsController";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -62,7 +62,7 @@ const responseTemplateSchema = z.object({
 
 export default function ModSettingsPage() {
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { user, checkUser } = useAuthStore();
   const userId = user?.$id;
 
   // Settings state
@@ -71,6 +71,10 @@ export default function ModSettingsPage() {
   const [autoReply, setAutoReply] = useState(false);
   const [twoFactor, setTwoFactor] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
 
   // Forms
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
@@ -99,10 +103,18 @@ export default function ModSettingsPage() {
     },
   });
 
-  // Load user settings
+        console.log("user",user)
+  // First ensure we have user data
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
+
+  // Load user settings after we have user data
   useEffect(() => {
     async function loadSettings() {
-      if (!userId) return;
+      if (!userId) {
+        return;
+      }
       
       try {
         setLoading(true);
@@ -140,7 +152,10 @@ export default function ModSettingsPage() {
       }
     }
     
-    loadSettings();
+    // Only load settings when userId is available
+    if (userId) {
+      loadSettings();
+    }
   }, [userId, toast, profileForm, responseTemplateForm, user]);
 
   // Form submit handlers
@@ -148,6 +163,7 @@ export default function ModSettingsPage() {
     if (!userId) return;
     
     try {
+      setProfileSubmitting(true);
       const result = await updateUserProfile(userId, values);
       
       if (result.success) {
@@ -155,6 +171,7 @@ export default function ModSettingsPage() {
           title: "Success",
           description: "Profile updated successfully",
         });
+        setIsEditingProfile(false);
       } else {
         toast({
           title: "Error",
@@ -169,6 +186,8 @@ export default function ModSettingsPage() {
         description: "An unexpected error occurred",
         variant: "destructive",
       });
+    } finally {
+      setProfileSubmitting(false);
     }
   }
 
@@ -176,6 +195,7 @@ export default function ModSettingsPage() {
     if (!userId) return;
     
     try {
+      setPasswordSubmitting(true);
       const result = await updateUserPassword(userId, {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
@@ -187,6 +207,7 @@ export default function ModSettingsPage() {
           description: "Password updated successfully",
         });
         passwordForm.reset();
+        setIsChangingPassword(false);
       } else {
         toast({
           title: "Error",
@@ -201,6 +222,8 @@ export default function ModSettingsPage() {
         description: "An unexpected error occurred",
         variant: "destructive",
       });
+    } finally {
+      setPasswordSubmitting(false);
     }
   }
 
@@ -315,124 +338,203 @@ export default function ModSettingsPage() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Settings */}
         <Card>
-          <CardHeader>
-            <CardTitle>Profile Settings</CardTitle>
-            <CardDescription>Update your personal information</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Profile Settings</CardTitle>
+              <CardDescription>Update your personal information</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEditingProfile(!isEditingProfile)}
+            >
+              {isEditingProfile ? "Cancel" : "Edit"}
+            </Button>
           </CardHeader>
           <CardContent>
-            <Form {...profileForm}>
-              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+            {!isEditingProfile ? (
+              <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={profileForm.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={profileForm.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  <div>
+                    <FormLabel>First Name</FormLabel>
+                    <Input 
+                      value={profileForm.getValues().firstName || ""} 
+                      disabled 
+                      className="bg-gray-50 dark:bg-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>Last Name</FormLabel>
+                    <Input 
+                      value={profileForm.getValues().lastName || ""} 
+                      disabled 
+                      className="bg-gray-50 dark:bg-gray-800"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FormLabel>Email</FormLabel>
+                  <Input 
+                    value={profileForm.getValues().email || ""} 
+                    disabled 
+                    className="bg-gray-50 dark:bg-gray-800"
                   />
                 </div>
-                <FormField
-                  control={profileForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="john@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={profileForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+1 (555) 000-0000" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit">Save Changes</Button>
-              </form>
-            </Form>
+                <div>
+                  <FormLabel>Phone Number</FormLabel>
+                  <Input 
+                    value={profileForm.getValues().phone || ""} 
+                    disabled 
+                    className="bg-gray-50 dark:bg-gray-800"
+                  />
+                </div>
+              </div>
+            ) : (
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                      control={profileForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={profileForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="john@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1 (555) 000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={profileSubmitting}>
+                    {profileSubmitting ? "Saving..." : "Save Changes"}
+                  </Button>
+                </form>
+              </Form>
+            )}
           </CardContent>
         </Card>
 
         {/* Password Change */}
         <Card>
-          <CardHeader>
-            <CardTitle>Change Password</CardTitle>
-            <CardDescription>Update your password</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Change Password</CardTitle>
+              <CardDescription>Update your password</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsChangingPassword(!isChangingPassword)}
+            >
+              {isChangingPassword ? "Cancel" : "Change Password"}
+            </Button>
           </CardHeader>
           <CardContent>
-            <Form {...passwordForm}>
-              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
-                <FormField
-                  control={passwordForm.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Current Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={passwordForm.control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>New Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={passwordForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm New Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit">Update Password</Button>
-              </form>
-            </Form>
+            {isChangingPassword ? (
+              <Form {...passwordForm}>
+                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+                  <FormField
+                    control={passwordForm.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Current Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm New Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={passwordSubmitting}>
+                    {passwordSubmitting ? "Updating..." : "Update Password"}
+                  </Button>
+                </form>
+              </Form>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <FormLabel>Password</FormLabel>
+                  <Input 
+                    type="password" 
+                    value="••••••••" 
+                    disabled 
+                    className="bg-gray-50 dark:bg-gray-800"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    For security reasons, your actual password is not displayed.
+                  </p>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Your password should be at least 8 characters long and include a mix of letters, numbers, and special characters for better security.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

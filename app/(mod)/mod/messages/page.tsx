@@ -45,9 +45,14 @@ export default function MessagesManagement() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuthStore();
+  const { user, checkUser } = useAuthStore();
   const moderatorId = user?.$id;
   const { toast } = useToast();
+  
+  // Initialize auth on component mount
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
   
   const DATABASE_ID = process.env.NEXT_PUBLIC_DATABASEID || "";
   const USERS_COLLECTION_ID = process.env.NEXT_PUBLIC_COLLECTID || "";
